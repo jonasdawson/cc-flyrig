@@ -1,0 +1,59 @@
+#!/bin/bash
+# init-user.sh — personal devcontainer overrides
+#
+# Copy this file to .devcontainer/init-user.sh (gitignored) and uncomment
+# whatever you need. It is sourced at the end of init-container.sh, so all
+# standard git / uv / jq tooling is already available.
+#
+# Nothing here is required — it is purely an escape hatch for personal setup
+# that you don't want to commit to the repo.
+
+# ── Git identity ─────────────────────────────────────────────────────────────
+# Alternative to setting GIT_USER_NAME / GIT_USER_EMAIL as host env vars:
+#
+# git config --global user.name  "Your Name"
+# git config --global user.email "you@example.com"
+
+# ── GPG commit signing ───────────────────────────────────────────────────────
+# If you use GPG rather than SSH for signing, import your key here and tell
+# git to use it.  Note: GPG signing typically requires the host gpg-agent to
+# be forwarded (e.g. via a socket mount) or a key imported directly.
+#
+# The generic devcontainer.public.json template ships with no GPG key mount and
+# no /release staging mount — both are personal additions some maintainers add
+# to their own local (gitignored-override) devcontainer.json, not part of the
+# published template. If you want the key available in-container without
+# manually pasting it in every session, add a bind mount for it to your own
+# devcontainer.json (see the mounts array) and import it below.
+#
+# gpg --import /path/to/private-key.asc
+# git config --global gpg.format    gpg
+# git config --global user.signingkey <KEY_ID>
+# git config --global commit.gpgsign true
+# git config --global tag.gpgsign    true
+
+# ── SSH signing key override ─────────────────────────────────────────────────
+# init-container.sh auto-selects an ED25519 key from the SSH agent.  Override
+# here if you want a specific key fingerprint instead:
+#
+# git config --global gpg.format    ssh
+# git config --global user.signingkey "ssh-ed25519 AAAA..."
+# git config --global commit.gpgsign true
+# git config --global tag.gpgsign    true
+
+# ── Claude statusline ────────────────────────────────────────────────────────
+# If you have a custom statusline script on your host, copy it from the
+# read-only host-claude bind mount and wire it up here.
+#
+# PYTHON=/usr/local/python/current/bin/python3
+# uv pip install --system colorama
+# cp /tmp/host-claude/statusline.py /tmp/host-claude/statusline.sh ~/.claude/ 2>/dev/null || true
+# jq --arg cmd "$PYTHON /home/node/.claude/statusline.py" \
+#   '.statusLine.command = $cmd' \
+#   ~/.claude/settings.json > /tmp/cc-settings-user.json \
+#   && mv /tmp/cc-settings-user.json ~/.claude/settings.json
+
+# ── Other personal git config ─────────────────────────────────────────────────
+# git config --global core.editor    vim
+# git config --global pull.rebase    true
+# git config --global push.autoSetupRemote true

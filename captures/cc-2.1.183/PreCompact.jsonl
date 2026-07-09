@@ -1,0 +1,2 @@
+{"custom_instructions": null, "cwd": "/tmp/cch-sandboxes/20260619T144033/compact", "hook_event_name": "PreCompact", "session_id": "<SESSION_ID>", "transcript_path": "<TRANSCRIPT_PATH>", "trigger": "manual"}
+{"custom_instructions": null, "cwd": "/tmp/cch-sandboxes/20260619T144033/compact-post-manual", "hook_event_name": "PreCompact", "session_id": "<SESSION_ID>", "transcript_path": "<TRANSCRIPT_PATH>", "trigger": "manual"}

@@ -1,0 +1,50 @@
+_subdirectory: "{{ language }}/cc-{{ cc_version }}/{{ event }}"
+_min_copier_version: "9.0"
+
+language:
+  type: str
+  default: python
+  help: "Target runtime."
+  choices:
+    - python
+    - typescript
+
+cc_version:
+  type: str
+  default: "{% include language + '/VERSION' %}"
+  help: "Claude Code schema version. Re-scaffold when upgrading Claude Code."
+
+event:
+  type: str
+  help: "Hook event to scaffold."
+  choices:
+    ConfigChange: config_change
+    CwdChanged: cwd_changed
+    Elicitation: elicitation
+    ElicitationResult: elicitation_result
+    FileChanged: file_changed
+    InstructionsLoaded: instructions_loaded
+    MessageDisplay: message_display
+    Notification: notification
+    PermissionDenied: permission_denied
+    PermissionRequest: permission_request
+    PostCompact: post_compact
+    PostToolBatch: post_tool_batch
+    PostToolUse: post_tool_use
+    PostToolUseFailure: post_tool_use_failure
+    PreCompact: pre_compact
+    PreToolUse: pre_tool_use
+    SessionEnd: session_end
+    SessionStart: session_start
+    Setup: setup
+    Stop: stop
+    StopFailure: stop_failure
+    SubagentStart: subagent_start
+    SubagentStop: subagent_stop
+    TaskCompleted: task_completed
+    TaskCreated: task_created
+    TeammateIdle: teammate_idle
+    UserPromptExpansion: user_prompt_expansion
+    UserPromptSubmit: user_prompt_submit
+    WorktreeCreate: worktree_create
+    WorktreeRemove: worktree_remove

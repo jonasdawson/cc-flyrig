@@ -1,0 +1,2 @@
+{"custom_instructions": null, "cwd": "/tmp/cch-sandboxes/20260704T101046/compact", "hook_event_name": "PreCompact", "prompt_id": "f8e30253-d72b-44dc-adcf-13913487322d", "session_id": "<SESSION_ID>", "transcript_path": "<TRANSCRIPT_PATH>", "trigger": "manual"}
+{"custom_instructions": null, "cwd": "/tmp/cch-sandboxes/20260704T101046/compact-post-manual", "hook_event_name": "PreCompact", "prompt_id": "28dc9b6b-6f68-4bef-a038-1810a39ea663", "session_id": "<SESSION_ID>", "transcript_path": "<TRANSCRIPT_PATH>", "trigger": "manual"}

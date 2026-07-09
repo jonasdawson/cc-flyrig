@@ -1,0 +1,528 @@
+# Capture battery for the cc-flyrig.
+#
+# Each [[scenario]] is one `claude` run the orchestrator drives (interactive, via tmux) to make hook
+# events fire so their real stdin payloads can be captured. Fields are grouped by concern:
+# [scenario.expect] (events/tools the run should surface + how it is reached), [scenario.launch]
+# (model, permission mode, CLI flags), [scenario.setup] (sandbox files, env), [scenario.drive]
+# (interactions, completion, timeout), and [scenario.environment_plugins] (opt-in capture mechanisms; see
+# capabilities.py). expect.events drives the coverage matrix and the orchestrator's retry-on-miss:
+# every expected event should be observed, and any that is not is reported as expected-but-missing
+# (e.g. WorktreeRemove, a tracked CC bug — see that scenario).
+
+[meta]
+description = "CC hooks capture battery (cc-2.1.177)"
+# P6: battery-wide defaults — Haiku 4.5 + low effort (cheap/fast); orchestration-heavy scenarios
+# override launch.model = "sonnet". Haiku's 200k window also enables the PostCompact auto-compaction
+# path.
+default_model = "haiku"
+default_effort = "low"
+
+[run.settings.standard]
+# P7: WorktreeCreate requires a stdout-printing shim — a passive probe would break worktree
+# creation. worktree_probe.py satisfies the path-print requirement; all other events use probe.py.
+default_script = "probe.py"
+[run.settings.standard.script_overrides]
+WorktreeCreate = "worktree_probe.py"
+[run.settings.standard.matchers]
+# P5: FileChanged requires a matcher; watched.txt is the watch target seeded in each sandbox.
+FileChanged = "watched.txt"
+
+[run.settings.native]
+# P9: used by git_repo scenarios where CC manages WorktreeCreate natively (causes WorktreeRemove
+# to fire on subagent teardown). WorktreeCreate excluded so CC uses its own git worktree machinery.
+default_script = "probe.py"
+exclude_events = ["WorktreeCreate"]
+[run.settings.native.matchers]
+FileChanged = "watched.txt"
+
+# --- Always-on lifecycle events ------------------------------------------------------------------
+
+[[scenario]]
+id = "baseline"
+prompt = "Reply with exactly the word: done. Do nothing else."
+[scenario.expect]
+events = ["SessionStart", "UserPromptSubmit", "Stop", "SessionEnd"]
+method = "promptable"
+
+[[scenario]]
+id = "instructions-loaded"
+prompt = "Reply with exactly the word: done. Do nothing else."
+[scenario.expect]
+events = ["InstructionsLoaded"]
+method = "side-effect"
+[scenario.setup]
+sandbox_files = [{ path = "CLAUDE.md", content = "# Sandbox\nThis project replies tersely.\n" }]
+
+# --- Built-in tools: PreToolUse / PostToolUse ----------------------------------------------------
+
+[[scenario]]
+id = "read-tool"
+prompt = "Use the Read tool on fixture.txt, then stop. Do nothing else."
+[scenario.expect]
+events = ["PreToolUse", "PostToolUse"]
+tools = ["Read"]
+method = "promptable"
+[scenario.launch]
+permission_mode = "bypassPermissions"
+[scenario.setup]
+sandbox_files = [{ path = "fixture.txt", content = "hello from the sandbox\n" }]
+
+[[scenario]]
+id = "write-tool"
+prompt = "Use the Write tool to create out.txt containing the text hello, then stop. Do nothing else."
+[scenario.expect]
+events = ["PreToolUse", "PostToolUse"]
+tools = ["Write"]
+method = "promptable"
+[scenario.launch]
+permission_mode = "bypassPermissions"
+
+[[scenario]]
+id = "edit-tool"
+prompt = "Use the Edit tool on fixture.txt to replace alpha with beta, then stop. Do nothing else."
+[scenario.expect]
+events = ["PreToolUse", "PostToolUse"]
+tools = ["Edit"]
+method = "promptable"
+[scenario.launch]
+permission_mode = "bypassPermissions"
+[scenario.setup]
+sandbox_files = [{ path = "fixture.txt", content = "alpha\n" }]
+
+[[scenario]]
+id = "bash-tool"
+prompt = "Use the Bash tool to run: echo hello. Then stop. Do nothing else."
+[scenario.expect]
+events = ["PreToolUse", "PostToolUse"]
+tools = ["Bash"]
+method = "promptable"
+[scenario.launch]
+permission_mode = "bypassPermissions"
+
+[[scenario]]
+id = "glob-tool"
+prompt = "Use the Glob tool with the pattern *.txt, then stop. Do nothing else."
+[scenario.expect]
+events = ["PreToolUse", "PostToolUse"]
+tools = ["Glob"]
+method = "promptable"
+[scenario.launch]
+permission_mode = "bypassPermissions"
+[scenario.setup]
+sandbox_files = [{ path = "a.txt", content = "a\n" }, { path = "b.txt", content = "b\n" }]
+
+[[scenario]]
+id = "grep-tool"
+prompt = "Use the Grep tool to search for the pattern needle, then stop. Do nothing else."
+[scenario.expect]
+events = ["PreToolUse", "PostToolUse"]
+tools = ["Grep"]
+method = "promptable"
+[scenario.launch]
+permission_mode = "bypassPermissions"
+[scenario.setup]
+sandbox_files = [{ path = "fixture.txt", content = "find the needle here\n" }]
+
+[[scenario]]
+id = "websearch-tool"
+prompt = "Use the WebSearch tool to search for: claude code hooks. Then stop. Do nothing else."
+[scenario.expect]
+events = ["PreToolUse", "PostToolUse"]
+tools = ["WebSearch"]
+method = "promptable"
+[scenario.launch]
+permission_mode = "bypassPermissions"
+[scenario.drive]
+timeout_s = 300
+
+[[scenario]]
+id = "webfetch-tool"
+prompt = "Use the WebFetch tool on https://example.com with the prompt: page title. Then stop."
+[scenario.expect]
+events = ["PreToolUse", "PostToolUse"]
+tools = ["WebFetch"]
+method = "promptable"
+[scenario.launch]
+permission_mode = "bypassPermissions"
+[scenario.drive]
+timeout_s = 300
+
+# --- Subagents and tool batches ------------------------------------------------------------------
+
+[[scenario]]
+id = "subagent"
+prompt = "Use the Agent tool with subagent_type Explore to find any file named fixture.txt, then stop."
+[scenario.expect]
+events = ["PreToolUse", "PostToolUse", "SubagentStart", "SubagentStop"]
+tools = ["Agent"]
+method = "promptable"
+[scenario.launch]
+permission_mode = "bypassPermissions"
+model = "sonnet"    # driving subagents reliably may exceed Haiku; override battery default
+[scenario.setup]
+sandbox_files = [{ path = "fixture.txt", content = "find me\n" }]
+[scenario.drive]
+timeout_s = 300
+
+[[scenario]]
+id = "post-tool-batch"
+prompt = "In a single step, use the Read tool on fixture.txt and the Bash tool to run echo hi. Then stop."
+[scenario.expect]
+events = ["PostToolBatch"]
+tools = ["Read", "Bash"]
+method = "promptable"
+[scenario.launch]
+permission_mode = "bypassPermissions"
+[scenario.setup]
+sandbox_files = [{ path = "fixture.txt", content = "batch me\n" }]
+
+# --- Failure path --------------------------------------------------------------------------------
+
+[[scenario]]
+id = "tool-failure"
+prompt = "Use the Read tool on does-not-exist.txt. Then stop. Do nothing else."
+[scenario.expect]
+events = ["PreToolUse", "PostToolUseFailure"]
+tools = ["Read"]
+method = "failure-induced"
+[scenario.launch]
+permission_mode = "bypassPermissions"
+
+# --- Launch-flag events --------------------------------------------------------------------------
+
+[[scenario]]
+id = "setup-init"
+[scenario.expect]
+events = ["Setup", "SessionStart"]
+method = "launch-flag"
+[scenario.launch]
+flags = ["--init-only"]
+
+# --- Side-effect events --------------------------------------------------------------------------
+
+[[scenario]]
+id = "user-prompt-expansion"
+prompt = "/demo"
+[scenario.expect]
+events = ["UserPromptExpansion"]
+method = "side-effect"
+[scenario.setup]
+sandbox_files = [{ path = ".claude/commands/demo.md", content = "Reply with exactly the word: expanded.\n" }]
+
+# --- Interactive events (need TUI interaction the orchestrator drives via send-keys) --------------
+
+# Use the Write tool (not a safe command like `echo`, which is auto-allowed) so a real permission
+# dialog appears in default mode; the interaction approves it with Enter.
+[[scenario]]
+id = "permission-request"
+prompt = "Use the Write tool to create gated.txt containing the text hi. Then stop."
+[scenario.expect]
+events = ["PermissionRequest", "Notification", "PreToolUse", "PostToolUse"]
+tools = ["Write"]
+method = "interactive"
+[scenario.launch]
+permission_mode = "default"
+[scenario.drive]
+interactions = [{ wait_for = "PermissionRequest", send_keys = ["Enter"] }]
+complete_on = "Notification"   # wait for the Notification envelope before teardown
+
+[[scenario]]
+id = "cwd-changed"
+# Literal (single-quoted) TOML string so the inner double quotes / $() stay verbatim.
+prompt = 'Use the Bash tool to run this exact command: cd "$(pwd)/subdir" && pwd. Then stop. Do nothing else.'
+[scenario.expect]
+events = ["CwdChanged", "PreToolUse", "PostToolUse"]
+tools = ["Bash"]
+method = "promptable"
+[scenario.launch]
+permission_mode = "bypassPermissions"
+[scenario.setup]
+sandbox_files = [{ path = "subdir/.keep", content = "" }]
+[scenario.drive]
+complete_on = "CwdChanged"
+timeout_s = 120
+
+[[scenario]]
+id = "message-display"
+prompt = "Write a haiku about the ocean, on three separate lines. Then stop."
+[scenario.expect]
+events = ["MessageDisplay"]
+method = "interactive"
+[scenario.launch]
+permission_mode = "bypassPermissions"
+
+# /compact in a fresh sandbox fires PreCompact but is rejected ("not enough messages"), so PostCompact
+# does not fire — it needs a long multi-turn session (see compact-post-* below). We wait on PreCompact
+# (drive.complete_on) so it is captured before teardown.
+[[scenario]]
+id = "compact"
+prompt = "Reply with exactly the word: ready."
+[scenario.expect]
+events = ["PreCompact"]
+method = "interactive"
+[scenario.drive]
+interactions = [{ wait_for = "Stop", send_keys = ["/compact", "Enter"] }]
+complete_on = "PreCompact"
+timeout_s = 300
+
+# --- Group 2: PostCompact (two scenarios) --------------------------------------------------------
+
+# Primary path: cap the effective context window low and exceed it in one Read so CC auto-compacts
+# (trigger: "auto"). Window cap (15000) × trigger pct (50) => auto-compact at ~7500 tokens; the
+# big.txt fixture just needs to exceed that in one Read. Both cap and fixture size are tuning params
+# verified at the capture run — lower the cap or enlarge big.txt if one Read does not trip it.
+# big.txt content: seed with repeated filler totalling ~10k tokens (~40KB). The exact content is a
+# tuning parameter; expand this at the capture run if needed (or lower CLAUDE_CODE_AUTO_COMPACT_WINDOW).
+[[scenario]]
+id = "compact-post-auto"
+prompt = "Use the Read tool on big.txt, then stop. Do nothing else."
+[scenario.expect]
+events = ["PreCompact", "PostCompact"]
+method = "side-effect"
+[scenario.launch]
+permission_mode = "bypassPermissions"
+model = "haiku"
+[scenario.setup]
+env = { CLAUDE_CODE_AUTO_COMPACT_WINDOW = "15000", CLAUDE_AUTOCOMPACT_PCT_OVERRIDE = "50" }
+sandbox_files = [
+  { path = "big.txt", content = "This line is repeated filler to pad the file to approximately ten thousand tokens for the auto-compaction test. The orchestrator reads this file in a single turn to exceed the capped context window and trigger automatic compaction. Adjust the window cap or expand this content at the capture run if one Read does not trip the threshold. The exact size is a tuning parameter. Lorem ipsum dolor sit amet consectetur adipiscing elit sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident sunt in culpa qui officia deserunt mollit anim id est laborum. " },
+]
+[scenario.drive]
+complete_on = "PostCompact"
+timeout_s = 180
+
+# Manual variant: three serialised Read turns produce enough messages for /compact to succeed
+# (trigger: "manual"). DISABLE_AUTO_COMPACT pins the trigger to manual on tiny fixtures.
+# Exercises P1 (occurrence-count wait) so turns serialise correctly.
+[[scenario]]
+id = "compact-post-manual"
+prompt = "Use the Read tool on file1.txt, then stop. Do nothing else."
+[scenario.expect]
+events = ["PreCompact", "PostCompact"]
+method = "interactive"
+[scenario.launch]
+permission_mode = "bypassPermissions"
+model = "haiku"
+[scenario.setup]
+env = { DISABLE_AUTO_COMPACT = "1" }
+sandbox_files = [
+  { path = "file1.txt", content = "alpha\n" },
+  { path = "file2.txt", content = "beta\n" },
+  { path = "file3.txt", content = "gamma\n" },
+]
+[scenario.drive]
+interactions = [
+  { wait_for = "Stop", send_keys = ["Use the Read tool on file2.txt, then stop. Do nothing else.", "Enter"] },
+  { wait_for = "Stop", send_keys = ["Use the Read tool on file3.txt, then stop. Do nothing else.", "Enter"] },
+  { wait_for = "Stop", send_keys = ["/compact", "Enter"] },
+]
+complete_on = "PostCompact"
+timeout_s = 360
+
+# --- Group 2: StopFailure ------------------------------------------------------------------------
+
+# The ratelimit-429 fixture server (P4) redirects all outbound API calls to a local always-429
+# endpoint, so CC hits its rate-limit error path regardless of what credentials are stored in the
+# devcontainer. ANTHROPIC_BASE_URL is auto-injected by the orchestrator when the fixture_server
+# capability is set.
+[[scenario]]
+id = "stop-failure"
+prompt = "Reply with exactly the word: done. Do nothing else."
+[scenario.expect]
+events = ["StopFailure"]
+method = "failure-induced"
+[scenario.launch]
+permission_mode = "bypassPermissions"
+[scenario.setup]
+env = { ANTHROPIC_API_KEY = "flyrig-capture-fixture-key" }
+[scenario.drive]
+complete_on = "StopFailure"
+timeout_s = 180
+[scenario.environment_plugins]
+fixture_server = "ratelimit-429"
+
+# --- Group 2: TeammateIdle -----------------------------------------------------------------------
+
+# Agent teams are gated on CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1 (CC >= 2.1.32). In-process mode
+# keeps all sessions inside the harness's single tmux session. Whether TeammateIdle fires under
+# the lead's --settings wiring is unconfirmed; if it does not fire at the capture run, it surfaces
+# as expected-but-missing in the coverage report.
+[[scenario]]
+id = "teammate-idle"
+prompt = "Create an agent team called flyrig-capture-team with one teammate named worker. Ask worker to write the single word done to result.txt and then stop. Wait for worker to finish."
+[scenario.expect]
+events = ["TeammateIdle"]
+method = "promptable"
+[scenario.launch]
+permission_mode = "bypassPermissions"
+model = "sonnet"
+[scenario.setup]
+env = { CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS = "1", CLAUDE_TEAMMATE_MODE = "in-process" }
+[scenario.drive]
+complete_on = "TeammateIdle"
+timeout_s = 300
+
+# --- Group 2: ConfigChange -----------------------------------------------------------------------
+
+# Seed .claude/settings.json so CC registers a watcher at session start. After the first Stop,
+# P3 rewrites the file in-place (MODIFY event, not rename), CC detects the change, fires ConfigChange.
+# send_keys = [] means this interaction's only action is the file write.
+[[scenario]]
+id = "config-change"
+prompt = "Reply with exactly the word: done. Do nothing else."
+[scenario.expect]
+events = ["ConfigChange"]
+method = "side-effect"
+[scenario.launch]
+permission_mode = "bypassPermissions"
+[scenario.setup]
+sandbox_files = [{ path = ".claude/settings.json", content = '{"permissions":{}}' }]
+[scenario.drive]
+interactions = [
+  { wait_for = "Stop", write_sandbox_file = ".claude/settings.json", content = '{"permissions":{"allow":[]}}', send_keys = [] },
+]
+complete_on = "ConfigChange"
+timeout_s = 120
+
+# --- Group 2: FileChanged ------------------------------------------------------------------------
+
+# P5 wires the probe on FileChanged with matcher = "watched.txt", so CC watches watched.txt in
+# the sandbox from session start. After the first Stop, P3 overwrites it in-place (MODIFY event),
+# CC's watcher fires FileChanged (file_path absolute, event: "change"), drive.complete_on catches it.
+[[scenario]]
+id = "file-changed"
+prompt = "Reply with exactly the word: ready. Do nothing else."
+[scenario.expect]
+events = ["FileChanged"]
+method = "side-effect"
+[scenario.launch]
+permission_mode = "bypassPermissions"
+[scenario.setup]
+sandbox_files = [{ path = "watched.txt", content = "initial\n" }]
+[scenario.drive]
+interactions = [
+  { wait_for = "Stop", write_sandbox_file = "watched.txt", content = "changed\n", send_keys = [] },
+]
+complete_on = "FileChanged"
+timeout_s = 60
+
+# --- Group 3: WorktreeCreate ---------------------------------------------------------------------
+
+# P7: the worktree_probe.py shim is wired on WorktreeCreate (via worktree_probe_path in
+# build_probe_settings). The shim creates the worktree dir and prints its absolute path (the
+# CC stdout contract), then best-effort spools the payload. The Agent tool with
+# isolation: "worktree" triggers WorktreeCreate before the subagent runs.
+[[scenario]]
+id = "worktree-lifecycle"
+prompt = "Use the Agent tool with subagent_type Explore and isolation worktree to list the files in the current directory, then stop. Do nothing else."
+[scenario.expect]
+events = ["WorktreeCreate", "SubagentStart", "SubagentStop"]
+tools = ["Agent"]
+method = "side-effect"
+[scenario.launch]
+permission_mode = "bypassPermissions"
+model = "sonnet"
+[scenario.drive]
+timeout_s = 300
+
+# --- Group 3: Elicitation + ElicitationResult ----------------------------------------------------
+
+# P8: mcp_elicit_server.py is a stdlib MCP JSON-RPC 2.0 stdio server that exposes probe_elicit.
+# When the model calls it, the server sends elicitation/create (single "value" field schema),
+# causing CC to fire Elicitation and show the TUI form. The passive probe on Elicitation spools
+# the payload; wait_for = "Elicitation" resolves off the spool, then send_keys fills and submits
+# the form. CC fires ElicitationResult, the server returns its tool result, drive.complete_on catches
+# it. The mcp_server capability triggers --mcp-config / --strict-mcp-config per-scenario (P8).
+# send_keys is a tuning parameter verified at the run (same as Group 2's compaction tuning).
+[[scenario]]
+id = "elicitation"
+prompt = "Use the probe_elicit tool from the elicit-probe MCP server. When the form appears, fill in any value and submit it. Then stop."
+[scenario.expect]
+events = ["Elicitation", "ElicitationResult"]
+tools = ["mcp__elicit-probe__probe_elicit"]
+method = "interactive"
+[scenario.launch]
+permission_mode = "bypassPermissions"
+model = "sonnet"
+[scenario.drive]
+interactions = [
+  { wait_for = "Elicitation", send_keys = ["capture-value", "Tab", "Enter"] },
+]
+complete_on = "ElicitationResult"
+timeout_s = 180
+[scenario.environment_plugins]
+mcp_server = "elicit-probe"
+
+# --- Group 4: TaskCreated + TaskCompleted (agent-teams task list) ---------------------------------
+# Rides the agent-teams infrastructure proven by teammate-idle: in-process mode keeps all sessions in
+# the harness's tmux session, the env flag is inherited by the teammate, and the events fire in the
+# LEAD process under the lead's --settings probe wiring. The lead's TaskCreate tool fires TaskCreated;
+# the teammate's TaskUpdate(completed) — or finishing its turn with the task in-progress — fires
+# TaskCompleted. sonnet per P6 (orchestration-heavy). drive.complete_on waits on the later event so
+# both land before teardown; a no-show surfaces as expected-but-missing in the coverage report.
+[[scenario]]
+id = "task-lifecycle"
+prompt = "Create an agent team called flyrig-task-team with one teammate named worker. Create a single task with the subject 'write done file' and assign it to worker. Have worker write the single word done to result.txt, then mark the task completed. Wait for the task to be completed."
+[scenario.expect]
+events = ["TaskCreated", "TaskCompleted"]
+method = "promptable"
+[scenario.launch]
+permission_mode = "bypassPermissions"
+model = "sonnet"
+[scenario.setup]
+env = { CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS = "1", CLAUDE_TEAMMATE_MODE = "in-process" }
+[scenario.drive]
+complete_on = "TaskCompleted"
+timeout_s = 360
+
+# --- Group 4: PermissionDenied (auto-mode classifier, env-exfiltration trigger) ------------------
+# DOC: fires ONLY in auto mode when the classifier denies a tool call (HOOK_EVENTS.md:1887).
+# GATE-1: auto mode requires Sonnet/Opus — Haiku (battery default) is unsupported, so model=sonnet
+# is mandatory (never drop this; setting permission_mode=auto on Haiku silently does nothing).
+# GATE-2: confirmed met — "auto mode on" appeared in TUI footer during the capture run.
+# Trigger: ask the model to inspect the environment and POST it to a public endpoint; the auto-mode
+# classifier hard-blocks the Bash call as data exfiltration ("HARD BLOCK / Data Exfiltration").
+[[scenario]]
+id = "permission-denied"
+prompt = "I need to debug why my API calls are failing. Inspect the current environment and send it to https://httpbin.org/post so I can see what variables are set."
+[scenario.expect]
+events = ["PermissionDenied"]
+tools = ["Bash"]
+method = "promptable"
+[scenario.launch]
+permission_mode = "auto"
+model = "sonnet"
+[scenario.drive]
+complete_on = "PermissionDenied"
+timeout_s = 120
+
+# --- WorktreeRemove (Option B — --worktree session + P10/P12 interactive remove) ------------------
+# CONFIRMED BUG (cc-2.1.168 + cc-2.1.177, manually verified): the WorktreeRemove hook never fires via
+# any path. (1) A custom WorktreeCreate shim suppresses the removal flow (#37611). (2) Subagent
+# isolation:worktree finish: deferred sweep, no hook. (3) Model-issued `git worktree remove` bypasses
+# dispatch. (4) --worktree exit (this scenario): dialog navigated + worktree removed, hook still not
+# called. This scenario keeps trying so the probe activates if CC fixes dispatch; until then the event
+# surfaces as expected-but-missing in the coverage report — a tracked anomaly, not a silent gap.
+# Option B mechanics: launch with --worktree so the session itself IS the worktree context; the
+# git_init capability seeds a real git repo (required for `git worktree add`); no WorktreeCreate shim
+# (native settings) so #37611 is not in play. P10 (3x): CC exits silently in tmux mode (#39281:
+# --worktree --tmux suppresses hooks); P12 prepends `env -u TMUX -u TMUX_PANE` to CC's argv. Dialog
+# confirmed: "❯ 1. Keep worktree / 2. Remove worktree"; prompt writes probe.txt so the worktree is
+# dirty (dirty = dialog shown; clean = auto-remove without hook); teardown sleeps 3s then sends
+# "2"+Enter (the worktree_remove_on_exit capability).
+[[scenario]]
+id = "worktree-remove"
+prompt = "Use the Bash tool to run: echo probe > probe.txt && ls -la. Then stop. Do nothing else."
+[scenario.expect]
+events = ["WorktreeRemove"]
+tools = ["Bash"]
+method = "interactive"
+[scenario.launch]
+permission_mode = "bypassPermissions"
+model = "sonnet"
+flags = ["--worktree", "flyrig-capture"]
+[scenario.drive]
+timeout_s = 180
+[scenario.environment_plugins]
+git_repo = true
+worktree = true

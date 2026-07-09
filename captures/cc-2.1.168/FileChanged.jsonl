@@ -1,0 +1,3 @@
+{"cwd": "/tmp/cch-sandboxes/20260607T113414/file-changed", "event": "change", "file_path": "/tmp/cch-sandboxes/20260607T113414/file-changed/watched.txt", "hook_event_name": "FileChanged", "session_id": "<SESSION_ID>", "transcript_path": "<TRANSCRIPT_PATH>"}
+{"cwd": "/tmp/cch-sandboxes/20260607T133949/file-changed", "event": "change", "file_path": "/tmp/cch-sandboxes/20260607T133949/file-changed/watched.txt", "hook_event_name": "FileChanged", "session_id": "<SESSION_ID>", "transcript_path": "<TRANSCRIPT_PATH>"}
+{"cwd": "/tmp/cch-sandboxes/20260607T173825/file-changed", "event": "change", "file_path": "/tmp/cch-sandboxes/20260607T173825/file-changed/watched.txt", "hook_event_name": "FileChanged", "session_id": "<SESSION_ID>", "transcript_path": "<TRANSCRIPT_PATH>"}

@@ -1,0 +1,55 @@
+{
+  "cc_version": "2.1.190",
+  "events": [
+    {
+      "event": "PreToolUse",
+      "description": "Before tool execution",
+      "input_note": "",
+      "output_note": "",
+      "input_fields": [],
+      "output_fields": [],
+      "exit_codes": "",
+      "raw": "  ? for shortcuts \u00b7 \u2190 for agents"
+    },
+    {
+      "event": "PostToolUse",
+      "description": "After tool execution",
+      "input_note": "",
+      "output_note": "",
+      "input_fields": [],
+      "output_fields": [],
+      "exit_codes": "",
+      "raw": "  ? for shortcuts \u00b7 \u2190 for agents"
+    },
+    {
+      "event": "PostToolUseFailure",
+      "description": "After tool execution fails",
+      "input_note": "",
+      "output_note": "",
+      "input_fields": [],
+      "output_fields": [],
+      "exit_codes": "",
+      "raw": ""
+    },
+    {
+      "event": "PostToolBatch",
+      "description": "After a batch of tool calls resolves",
+      "input_note": "",
+      "output_note": "",
+      "input_fields": [],
+      "output_fields": [],
+      "exit_codes": "",
+      "raw": ""
+    },
+    {
+      "event": "PermissionDenied",
+      "description": "After auto mode classifier denies a tool call",
+      "input_note": "",
+      "output_note": "",
+      "input_fields": [],
+      "output_fields": [],
+      "exit_codes": "",
+      "raw": ""
+    }
+  ]
+}

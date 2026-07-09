@@ -1,0 +1,25 @@
+# Capture coverage — cc-{{ report.cc_version }}
+
+Captured at: {{ report.captured_at or 'n/a' }}
+
+Observed {{ report.observed }}/{{ report.total_events }} events · {{ report.missing }} expected-but-missing · {{ report.not_attempted }} not-attempted.
+{% if report.missing %}
+
+> ⚠️ Some events the battery expected were not captured — see **expected-but-missing** below.
+{% endif %}
+
+## Events
+
+| Event | Status | Payloads | Capture method |
+| --- | --- | ---: | --- |
+{% for row in report.rows %}
+| {{ row.event }} | {{ row.status }} | {{ row.count }} | {{ row.capture_methods | join(', ') or '—' }} |
+{% endfor %}
+
+## Tools observed (tool-bearing events)
+
+| Event | Tools seen |
+| --- | --- |
+{% for event, tool_names in report.tools %}
+| {{ event }} | {{ tool_names | join(', ') or '—' }} |
+{% endfor %}

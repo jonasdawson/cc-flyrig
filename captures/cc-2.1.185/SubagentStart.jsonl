@@ -1,0 +1,4 @@
+{"agent_id": "a337b58a6f8047531", "agent_type": "Explore", "cwd": "/workspace/captures/worktrees/agent-a337b58a6f8047531", "hook_event_name": "SubagentStart", "session_id": "<SESSION_ID>", "transcript_path": "<TRANSCRIPT_PATH>"}
+{"agent_id": "a50ef8b488bead90a", "agent_type": "Explore", "cwd": "/tmp/cch-sandboxes/20260620T170014/subagent", "hook_event_name": "SubagentStart", "session_id": "<SESSION_ID>", "transcript_path": "<TRANSCRIPT_PATH>"}
+{"agent_id": "aworker-738235dc3c4c0d71", "agent_type": "worker", "cwd": "/tmp/cch-sandboxes/20260620T170014/teammate-idle", "hook_event_name": "SubagentStart", "session_id": "<SESSION_ID>", "transcript_path": "<TRANSCRIPT_PATH>"}
+{"agent_id": "aworker-b807d9e8438373e4", "agent_type": "worker", "cwd": "/tmp/cch-sandboxes/20260620T170014/task-lifecycle", "hook_event_name": "SubagentStart", "session_id": "<SESSION_ID>", "transcript_path": "<TRANSCRIPT_PATH>"}

@@ -1,0 +1,3 @@
+# Personal devcontainer overrides — copy init-user.sh.example to init-user.sh
+# and customise for your own git identity, GPG/SSH signing, and other setup.
+init-user.sh

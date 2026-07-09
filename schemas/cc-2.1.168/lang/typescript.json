@@ -1,0 +1,8 @@
+{
+  "language": "typescript",
+  "extension": "ts",
+  "stub_name": "index",
+  "formatter": null,
+  "checker": "esbuild",
+  "class_names": {}
+}

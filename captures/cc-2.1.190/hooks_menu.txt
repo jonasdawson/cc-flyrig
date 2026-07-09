@@ -1,0 +1,14 @@
+### PreToolUse
+  ? for shortcuts · ← for agents
+
+### PostToolUse
+  ? for shortcuts · ← for agents
+
+### PostToolUseFailure
+
+
+### PostToolBatch
+
+
+### PermissionDenied
+

@@ -1,0 +1,538 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schemas/cc-2.1.196/statusline.schema.json",
+  "title": "Claude Code Statusline Family",
+  "description": "Canonical IR for the statusLine / subagentStatusLine stdin-JSON contracts. A sibling namespace to hooks.schema.json (ADR 0010) \u2014 statusLine is not a hook and must never be folded into the hooks IR. Reconciled against real captured payloads (capture_harness/spikes/statusline_spike.py) and the /statusline reference. CC version 2.1.196.",
+  "x-cc-version": "2.1.196",
+  "x-schema-date": "2026-07-08",
+  "$defs": {
+    "EffortLevel": {
+      "type": "string",
+      "enum": [
+        "low",
+        "medium",
+        "high",
+        "xhigh",
+        "max"
+      ]
+    },
+    "EffortObject": {
+      "type": "object",
+      "required": [
+        "level"
+      ],
+      "properties": {
+        "level": {
+          "$ref": "#/$defs/EffortLevel"
+        }
+      }
+    },
+    "VimMode": {
+      "type": "string",
+      "enum": [
+        "NORMAL",
+        "INSERT",
+        "VISUAL",
+        "VISUAL LINE"
+      ]
+    },
+    "PRReviewState": {
+      "type": "string",
+      "enum": [
+        "approved",
+        "pending",
+        "changes_requested",
+        "draft"
+      ]
+    },
+    "ModelInfo": {
+      "type": "object",
+      "required": [
+        "id",
+        "display_name"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Model identifier."
+        },
+        "display_name": {
+          "type": "string",
+          "description": "Human-readable model name."
+        }
+      }
+    },
+    "RepoInfo": {
+      "type": "object",
+      "required": [
+        "host",
+        "owner",
+        "name"
+      ],
+      "properties": {
+        "host": {
+          "type": "string",
+          "description": "Git host, e.g. github.com."
+        },
+        "owner": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        }
+      }
+    },
+    "WorkspaceInfo": {
+      "type": "object",
+      "required": [
+        "current_dir",
+        "project_dir",
+        "added_dirs"
+      ],
+      "properties": {
+        "current_dir": {
+          "type": "string"
+        },
+        "project_dir": {
+          "type": "string"
+        },
+        "added_dirs": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "git_worktree": {
+          "type": "string",
+          "description": "Absent outside a linked git worktree.",
+          "x-trigger-condition": "session runs inside a linked git worktree"
+        },
+        "repo": {
+          "$ref": "#/$defs/RepoInfo",
+          "description": "Absent outside git repos with an origin remote.",
+          "x-trigger-condition": "cwd is a git repo with an origin remote"
+        }
+      }
+    },
+    "OutputStyle": {
+      "type": "object",
+      "required": [
+        "name"
+      ],
+      "properties": {
+        "name": {
+          "type": "string"
+        }
+      }
+    },
+    "CostInfo": {
+      "type": "object",
+      "required": [
+        "total_cost_usd",
+        "total_duration_ms",
+        "total_api_duration_ms",
+        "total_lines_added",
+        "total_lines_removed"
+      ],
+      "properties": {
+        "total_cost_usd": {
+          "type": "number"
+        },
+        "total_duration_ms": {
+          "type": "integer"
+        },
+        "total_api_duration_ms": {
+          "type": "integer"
+        },
+        "total_lines_added": {
+          "type": "integer"
+        },
+        "total_lines_removed": {
+          "type": "integer"
+        }
+      }
+    },
+    "CurrentUsage": {
+      "type": "object",
+      "required": [
+        "input_tokens",
+        "output_tokens",
+        "cache_creation_input_tokens",
+        "cache_read_input_tokens"
+      ],
+      "properties": {
+        "input_tokens": {
+          "type": "integer"
+        },
+        "output_tokens": {
+          "type": "integer"
+        },
+        "cache_creation_input_tokens": {
+          "type": "integer"
+        },
+        "cache_read_input_tokens": {
+          "type": "integer"
+        }
+      }
+    },
+    "ContextWindow": {
+      "type": "object",
+      "required": [
+        "total_input_tokens",
+        "total_output_tokens",
+        "context_window_size"
+      ],
+      "properties": {
+        "total_input_tokens": {
+          "type": "integer",
+          "x-note": "Semantics changed cumulative -> current-context in CC 2.1.132; same name/type, not a shape change (feature doc Q2)."
+        },
+        "total_output_tokens": {
+          "type": "integer"
+        },
+        "context_window_size": {
+          "type": "integer"
+        },
+        "used_percentage": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "description": "Null early in session.",
+          "x-trigger-condition": "absent/null before the first API response"
+        },
+        "remaining_percentage": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "x-trigger-condition": "absent/null before the first API response"
+        },
+        "current_usage": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/CurrentUsage"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Null before the first API call and after /compact.",
+          "x-trigger-condition": "absent/null before first API call and immediately after /compact"
+        }
+      }
+    },
+    "ThinkingInfo": {
+      "type": "object",
+      "required": [
+        "enabled"
+      ],
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        }
+      }
+    },
+    "RateLimitWindow": {
+      "type": "object",
+      "required": [
+        "used_percentage",
+        "resets_at"
+      ],
+      "properties": {
+        "used_percentage": {
+          "type": "number"
+        },
+        "resets_at": {
+          "type": "integer",
+          "description": "Unix epoch seconds."
+        }
+      }
+    },
+    "RateLimits": {
+      "type": "object",
+      "properties": {
+        "five_hour": {
+          "$ref": "#/$defs/RateLimitWindow",
+          "x-trigger-condition": "may be independently absent"
+        },
+        "seven_day": {
+          "$ref": "#/$defs/RateLimitWindow",
+          "x-trigger-condition": "may be independently absent"
+        }
+      }
+    },
+    "VimInfo": {
+      "type": "object",
+      "required": [
+        "mode"
+      ],
+      "properties": {
+        "mode": {
+          "$ref": "#/$defs/VimMode"
+        }
+      }
+    },
+    "AgentInfo": {
+      "type": "object",
+      "required": [
+        "name"
+      ],
+      "properties": {
+        "name": {
+          "type": "string"
+        }
+      }
+    },
+    "PRInfo": {
+      "type": "object",
+      "required": [
+        "number",
+        "url"
+      ],
+      "properties": {
+        "number": {
+          "type": "integer"
+        },
+        "url": {
+          "type": "string"
+        },
+        "review_state": {
+          "$ref": "#/$defs/PRReviewState",
+          "description": "May be absent even when pr is present."
+        }
+      }
+    },
+    "WorktreeInfo": {
+      "type": "object",
+      "required": [
+        "name",
+        "path",
+        "original_cwd"
+      ],
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "path": {
+          "type": "string"
+        },
+        "original_cwd": {
+          "type": "string"
+        },
+        "branch": {
+          "type": "string",
+          "description": "Absent for hook-based worktrees."
+        },
+        "original_branch": {
+          "type": "string",
+          "description": "Absent for hook-based worktrees."
+        }
+      }
+    },
+    "TaskInfo": {
+      "type": "object",
+      "description": "One entry of subagentStatusLine's tasks[].",
+      "required": [
+        "id",
+        "type",
+        "status",
+        "description",
+        "label",
+        "startTime",
+        "tokenCount",
+        "tokenSamples",
+        "cwd"
+      ],
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "type": {
+          "type": "string",
+          "description": "Observed value: local_agent."
+        },
+        "status": {
+          "type": "string",
+          "description": "Observed value: running."
+        },
+        "description": {
+          "type": "string"
+        },
+        "label": {
+          "type": "string"
+        },
+        "startTime": {
+          "type": "integer",
+          "description": "Epoch milliseconds."
+        },
+        "tokenCount": {
+          "type": "integer"
+        },
+        "tokenSamples": {
+          "type": "array",
+          "items": {
+            "type": "integer"
+          }
+        },
+        "cwd": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string",
+          "description": "Documented by the /statusline reference.",
+          "x-provenance": "reference-only, unconfirmed by capture"
+        }
+      }
+    },
+    "StatusLineInput": {
+      "type": "object",
+      "description": "The whole statusLine contract \u2014 statusLine has no output schema (D3); inputs are authored entirely from capture.",
+      "x-decision-pattern": "text-return",
+      "required": [
+        "cwd",
+        "session_id",
+        "transcript_path",
+        "version",
+        "exceeds_200k_tokens",
+        "fast_mode",
+        "model",
+        "workspace",
+        "output_style",
+        "cost",
+        "context_window",
+        "thinking"
+      ],
+      "properties": {
+        "cwd": {
+          "type": "string"
+        },
+        "session_id": {
+          "type": "string"
+        },
+        "transcript_path": {
+          "type": "string"
+        },
+        "version": {
+          "type": "string"
+        },
+        "exceeds_200k_tokens": {
+          "type": "boolean"
+        },
+        "fast_mode": {
+          "type": "boolean",
+          "description": "Whether fast mode is active.",
+          "x-drift": "additive \u2014 present in captured payloads, undocumented in statusline_types.py; feed back into that file (feature doc, U3)."
+        },
+        "model": {
+          "$ref": "#/$defs/ModelInfo"
+        },
+        "workspace": {
+          "$ref": "#/$defs/WorkspaceInfo"
+        },
+        "output_style": {
+          "$ref": "#/$defs/OutputStyle"
+        },
+        "cost": {
+          "$ref": "#/$defs/CostInfo"
+        },
+        "context_window": {
+          "$ref": "#/$defs/ContextWindow"
+        },
+        "thinking": {
+          "$ref": "#/$defs/ThinkingInfo"
+        },
+        "session_name": {
+          "type": "string",
+          "description": "The session name \u2014 set via --name or /rename, or auto-generated by Claude Code from the conversation.",
+          "x-trigger-condition": "set via --name, /rename, or auto-generated by CC from the conversation"
+        },
+        "prompt_id": {
+          "type": "string",
+          "description": "UUID identifying the user prompt currently being processed. Matches the prompt.id attribute on OpenTelemetry events, so status line output can be correlated with telemetry for a single prompt. Absent until first user input (v2.1.196+).",
+          "x-trigger-condition": "absent until first user input"
+        },
+        "effort": {
+          "$ref": "#/$defs/EffortObject",
+          "x-trigger-condition": "absent when the current model doesn't support the effort param"
+        },
+        "rate_limits": {
+          "$ref": "#/$defs/RateLimits",
+          "description": "Pro/Max subscribers only, after the first API response.",
+          "x-trigger-condition": "Pro/Max-OAuth auth with at least one API response; absent for API-key auth"
+        },
+        "vim": {
+          "$ref": "#/$defs/VimInfo",
+          "x-trigger-condition": "vim mode enabled"
+        },
+        "agent": {
+          "$ref": "#/$defs/AgentInfo",
+          "x-trigger-condition": "--agent flag or agent settings"
+        },
+        "pr": {
+          "$ref": "#/$defs/PRInfo",
+          "x-trigger-condition": "an open PR exists for the current branch"
+        },
+        "worktree": {
+          "$ref": "#/$defs/WorktreeInfo",
+          "x-trigger-condition": "--worktree session"
+        }
+      }
+    },
+    "SubagentStatusLineInput": {
+      "type": "object",
+      "description": "A small, fixed envelope \u2014 NOT a subset of StatusLineInput and NOT the hooks CommonInput envelope (no hook_event_name, no permission_mode).",
+      "required": [
+        "session_id",
+        "transcript_path",
+        "cwd",
+        "prompt_id",
+        "columns",
+        "tasks"
+      ],
+      "properties": {
+        "session_id": {
+          "type": "string"
+        },
+        "transcript_path": {
+          "type": "string"
+        },
+        "cwd": {
+          "type": "string"
+        },
+        "prompt_id": {
+          "type": "string"
+        },
+        "columns": {
+          "type": "integer"
+        },
+        "tasks": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/TaskInfo"
+          }
+        }
+      }
+    },
+    "SubagentStatusLineOutput": {
+      "type": "object",
+      "description": "One {id, content} row per visible subagent. Authored from the /statusline reference.",
+      "x-decision-pattern": "jsonlines-rows",
+      "required": [
+        "id",
+        "content"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Identifier of the subagent row this content replaces."
+        },
+        "content": {
+          "type": "string",
+          "description": "Text rendered for this subagent's row."
+        }
+      },
+      "x-provenance": "reference-authored, unconfirmed by capture"
+    }
+  }
+}

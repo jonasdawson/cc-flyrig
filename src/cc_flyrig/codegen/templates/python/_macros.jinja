@@ -1,0 +1,185 @@
+{# Python-target rendering macros: TypeNode -> Python type syntax, wire-name -> identifier, and the
+   stdlib model block (str/Enum classes, @dataclass(slots=True) with from_dict/to_dict). This file is
+   the Python contribution surface — adding another runtime means writing templates/<lang>/_macros.jinja,
+   not Python. Output is finalized by `ruff format` in the generator, so these macros aim for correct
+   *content* (import order, comments, docstrings, conversions) and leave quote style, line wrapping,
+   and blank-line normalization to ruff. #}
+
+{# ---- naming -------------------------------------------------------------------------------------- #}
+
+{% macro lang_name(json_name) %}
+{%- set keywords = [
+  "and", "as", "assert", "async", "await", "break", "class", "continue", "def", "del", "elif",
+  "else", "except", "finally", "for", "from", "global", "if", "import", "in", "is", "lambda",
+  "nonlocal", "not", "or", "pass", "raise", "return", "try", "while", "with", "yield"
+] -%}
+{%- set snake = json_name
+      | regex_replace("([A-Z]+)([A-Z][a-z])", "\\g<1>_\\g<2>")
+      | regex_replace("([a-z0-9])([A-Z])", "\\g<1>_\\g<2>")
+      | lower -%}
+{%- if snake in keywords -%}{{ snake }}_{%- else -%}{{ snake }}{%- endif -%}
+{% endmacro %}
+
+{% macro enum_member(value) %}
+{%- set snake = value
+      | regex_replace("([A-Z]+)([A-Z][a-z])", "\\g<1>_\\g<2>")
+      | regex_replace("([a-z0-9])([A-Z])", "\\g<1>_\\g<2>")
+      | regex_replace("[^A-Za-z0-9]+", "_")
+      | lower -%}
+{{ snake | upper }}
+{%- endmacro %}
+
+{# ---- type rendering ------------------------------------------------------------------------------ #}
+
+{% macro py_literal(v) %}
+{%- if v is string -%}"{{ v }}"{%- else -%}{{ v }}{%- endif -%}
+{% endmacro %}
+
+{% macro render_type(node) %}
+{%- if node.kind == "scalar" -%}
+{{ {"string": "str", "boolean": "bool", "integer": "int", "number": "float"}[node.name] }}
+{%- elif node.kind == "ref" -%}
+{{ node.class_name }}
+{%- elif node.kind == "array" -%}
+list[{{ render_type(node.items) }}]
+{%- elif node.kind == "union" -%}
+{%- set ns = namespace(parts=[]) -%}
+{%- for m in node.members -%}
+{%- set rendered = render_type(m) -%}
+{%- if rendered not in ns.parts -%}{%- set _ = ns.parts.append(rendered) -%}{%- endif -%}
+{%- endfor -%}
+{{ ns.parts | join(" | ") }}
+{%- elif node.kind == "literal" -%}
+{%- set ns = namespace(parts=[]) -%}
+{%- for v in node.values -%}{%- set _ = ns.parts.append(py_literal(v)) -%}{%- endfor -%}
+Literal[{{ ns.parts | join(", ") }}]
+{%- elif node.kind == "open_object" -%}
+dict
+{%- endif -%}
+{% endmacro %}
+
+{# ---- (de)serialization conversions --------------------------------------------------------------- #}
+
+{% macro from_expr(field, enum_names, record_names) %}
+{%- set node = field.type_node -%}
+{%- set key = '"' ~ field.json_name ~ '"' -%}
+{%- set is_enum = node.kind == "ref" and node.class_name in enum_names -%}
+{%- set is_dc = node.kind == "ref" and node.class_name in record_names -%}
+{%- set is_list_enum = node.kind == "array" and node.items.kind == "ref" and node.items.class_name in enum_names -%}
+{%- set is_list_dc = node.kind == "array" and node.items.kind == "ref" and node.items.class_name in record_names -%}
+{%- if not (is_enum or is_dc or is_list_enum or is_list_dc) -%}
+{%- if field.required -%}data[{{ key }}]{%- else -%}data.get({{ key }}){%- endif -%}
+{%- else -%}
+{%- if is_enum -%}{%- set convert = node.class_name ~ "(data[" ~ key ~ "])" -%}
+{%- elif is_dc -%}{%- set convert = node.class_name ~ ".from_dict(data[" ~ key ~ "])" -%}
+{%- elif is_list_enum -%}{%- set convert = "[" ~ node.items.class_name ~ "(_v) for _v in data[" ~ key ~ "]]" -%}
+{%- else -%}{%- set convert = "[" ~ node.items.class_name ~ ".from_dict(_v) for _v in data[" ~ key ~ "]]" -%}
+{%- endif -%}
+{%- if field.required -%}{{ convert }}{%- else -%}{{ convert }} if data.get({{ key }}) is not None else None{%- endif -%}
+{%- endif -%}
+{% endmacro %}
+
+{% macro to_value(field, enum_names, record_names) %}
+{%- set node = field.type_node -%}
+{%- set attr = "self." ~ lang_name(field.json_name) -%}
+{%- if node.kind == "ref" and node.class_name in enum_names -%}{{ attr }}.value
+{%- elif node.kind == "ref" and node.class_name in record_names -%}{{ attr }}.to_dict()
+{%- elif node.kind == "array" and node.items.kind == "ref" and node.items.class_name in enum_names -%}[_v.value for _v in {{ attr }}]
+{%- elif node.kind == "array" and node.items.kind == "ref" and node.items.class_name in record_names -%}[_v.to_dict() for _v in {{ attr }}]
+{%- else -%}{{ attr }}
+{%- endif -%}
+{% endmacro %}
+
+{# ---- class blocks -------------------------------------------------------------------------------- #}
+
+{% macro emit_enum(spec) %}
+{%- set ns = namespace(lines=["class " ~ spec.class_name ~ "(str, Enum):"]) -%}
+{%- if spec.doc -%}
+{%- set _ = ns.lines.append('    """' ~ spec.doc ~ '"""') -%}
+{%- set _ = ns.lines.append("") -%}
+{%- endif -%}
+{%- for value in spec.wire_values -%}
+{%- set _ = ns.lines.append("    " ~ enum_member(value) ~ ' = "' ~ value ~ '"') -%}
+{%- endfor -%}
+{{ ns.lines | join("\n") }}
+{%- endmacro %}
+
+{% macro from_dict_block(spec, enum_names, record_names) %}
+{%- set ns = namespace(lines=["    @classmethod", '    def from_dict(cls, data: dict) -> "' ~ spec.class_name ~ '":']) -%}
+{%- if not spec.fields -%}
+{%- set _ = ns.lines.append("        return cls()") -%}
+{%- else -%}
+{%- set _ = ns.lines.append("        return cls(") -%}
+{%- for field in spec.fields -%}
+{%- set _ = ns.lines.append("            " ~ lang_name(field.json_name) ~ "=" ~ from_expr(field, enum_names, record_names) ~ ",") -%}
+{%- endfor -%}
+{%- set _ = ns.lines.append("        )") -%}
+{%- endif -%}
+{{ ns.lines | join("\n") }}
+{%- endmacro %}
+
+{% macro to_dict_block(spec, enum_names, record_names) %}
+{%- set ns = namespace(lines=["    def to_dict(self) -> dict:", "        result: dict = {}"]) -%}
+{%- for field in spec.fields -%}
+{%- set key = '"' ~ field.json_name ~ '"' -%}
+{%- if field.required -%}
+{%- set _ = ns.lines.append("        result[" ~ key ~ "] = " ~ to_value(field, enum_names, record_names)) -%}
+{%- else -%}
+{%- set _ = ns.lines.append("        if self." ~ lang_name(field.json_name) ~ " is not None:") -%}
+{%- set _ = ns.lines.append("            result[" ~ key ~ "] = " ~ to_value(field, enum_names, record_names)) -%}
+{%- endif -%}
+{%- endfor -%}
+{%- set _ = ns.lines.append("        return result") -%}
+{{ ns.lines | join("\n") }}
+{%- endmacro %}
+
+{% macro emit_record(spec, enum_names, record_names) %}
+{%- set ns = namespace(lines=["@dataclass(slots=True)", "class " ~ spec.class_name ~ ":"]) -%}
+{%- if spec.doc -%}
+{%- set _ = ns.lines.append('    """' ~ spec.doc ~ '"""') -%}
+{%- set _ = ns.lines.append("") -%}
+{%- endif -%}
+{%- for field in spec.fields -%}
+{%- if field.required -%}
+{%- set _ = ns.lines.append("    " ~ lang_name(field.json_name) ~ ": " ~ render_type(field.type_node)) -%}
+{%- else -%}
+{%- set _ = ns.lines.append("    " ~ lang_name(field.json_name) ~ ": " ~ render_type(field.type_node) ~ " | None = None") -%}
+{%- endif -%}
+{%- if field.doc -%}
+{%- set _ = ns.lines.append('    """' ~ field.doc ~ '"""') -%}
+{%- endif -%}
+{%- endfor -%}
+{%- set _ = ns.lines.append("") -%}
+{%- set _ = ns.lines.append(from_dict_block(spec, enum_names, record_names)) -%}
+{%- set _ = ns.lines.append("") -%}
+{%- set _ = ns.lines.append(to_dict_block(spec, enum_names, record_names)) -%}
+{{ ns.lines | join("\n") }}
+{%- endmacro %}
+
+{# ---- module assembly ----------------------------------------------------------------------------- #}
+
+{% macro model_imports(specs) %}
+{%- set ns = namespace(lines=["from dataclasses import dataclass"], literal=false) -%}
+{%- if specs | selectattr("kind", "equalto", "enum") | list -%}
+{%- set _ = ns.lines.append("from enum import Enum") -%}
+{%- endif -%}
+{%- for spec in specs if spec.kind == "record" -%}
+{%- for field in spec.fields -%}
+{%- if "Literal[" in render_type(field.type_node) -%}{%- set ns.literal = true -%}{%- endif -%}
+{%- endfor -%}
+{%- endfor -%}
+{%- if ns.literal -%}{%- set _ = ns.lines.append("from typing import Literal") -%}{%- endif -%}
+{{ ns.lines | join("\n") }}
+{%- endmacro %}
+
+{% macro emit_model(specs) %}
+{%- set enum_names = specs | selectattr("kind", "equalto", "enum") | map(attribute="class_name") | list -%}
+{%- set record_names = specs | selectattr("kind", "equalto", "record") | map(attribute="class_name") | list -%}
+{%- set ns = namespace(blocks=[]) -%}
+{%- for spec in specs -%}
+{%- if spec.kind == "enum" -%}{%- set _ = ns.blocks.append(emit_enum(spec)) -%}
+{%- else -%}{%- set _ = ns.blocks.append(emit_record(spec, enum_names, record_names)) -%}
+{%- endif -%}
+{%- endfor -%}
+{{ ns.blocks | join("\n\n\n") }}
+{%- endmacro %}

@@ -1,0 +1,2 @@
+{"agent_id": "a93979b4fa76175bc", "agent_type": "Explore", "cwd": "/workspace/captures/worktrees/agent-a93979b4fa76175bc", "hook_event_name": "SubagentStart", "session_id": "<SESSION_ID>", "transcript_path": "<TRANSCRIPT_PATH>"}
+{"agent_id": "ab031a906fa061c1a", "agent_type": "Explore", "cwd": "/tmp/cch-sandboxes/20260613T063051/subagent", "hook_event_name": "SubagentStart", "session_id": "<SESSION_ID>", "transcript_path": "<TRANSCRIPT_PATH>"}

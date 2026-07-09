@@ -1,0 +1,349 @@
+{
+  "cc_version": "2.1.183",
+  "validated_at": "2026-06-20T14:51:40.767641+00:00",
+  "run_id": "7c5320d4",
+  "summary": {
+    "pass": 24,
+    "unobservable": 21
+  },
+  "results": [
+    {
+      "event": "PreToolUse",
+      "field": "hookSpecificOutput.permissionDecision",
+      "variant": "deny",
+      "assertion": "spool-absent",
+      "result": "pass"
+    },
+    {
+      "event": "PreToolUse",
+      "field": "hookSpecificOutput.additionalContext",
+      "variant": null,
+      "assertion": "pane-contains",
+      "result": "pass"
+    },
+    {
+      "event": "PreToolUse",
+      "field": "hookSpecificOutput.permissionDecision",
+      "variant": "allow",
+      "assertion": "spool-present",
+      "result": "pass"
+    },
+    {
+      "event": "PreToolUse",
+      "field": "hookSpecificOutput.updatedInput",
+      "variant": null,
+      "assertion": "spool-present",
+      "result": "pass"
+    },
+    {
+      "event": "PermissionRequest",
+      "field": "hookSpecificOutput.decision.behavior",
+      "variant": "deny",
+      "assertion": "pane-contains",
+      "result": "pass"
+    },
+    {
+      "event": "PermissionRequest",
+      "field": "hookSpecificOutput.decision.behavior",
+      "variant": "allow",
+      "assertion": "spool-present",
+      "result": "pass"
+    },
+    {
+      "event": "PermissionRequest",
+      "field": "hookSpecificOutput.decision.interrupt",
+      "variant": null,
+      "assertion": "spool-absent",
+      "result": "pass"
+    },
+    {
+      "event": "PostToolUse",
+      "field": "hookSpecificOutput.decision",
+      "variant": "block",
+      "assertion": "pane-contains",
+      "result": "pass"
+    },
+    {
+      "event": "PostToolUse",
+      "field": "hookSpecificOutput.updatedToolOutput",
+      "variant": null,
+      "assertion": "pane-contains",
+      "result": "unobservable"
+    },
+    {
+      "event": "UserPromptSubmit",
+      "field": "hookSpecificOutput.decision",
+      "variant": "block",
+      "assertion": "spool-absent",
+      "result": "pass"
+    },
+    {
+      "event": "UserPromptSubmit",
+      "field": "CommonOutput.continue",
+      "variant": "false",
+      "assertion": "spool-present",
+      "result": "pass"
+    },
+    {
+      "event": "SessionStart",
+      "field": "hookSpecificOutput.watchPaths",
+      "variant": null,
+      "assertion": "spool-present",
+      "result": "pass"
+    },
+    {
+      "event": "PermissionDenied",
+      "field": "hookSpecificOutput.retry",
+      "variant": "true",
+      "assertion": "unobservable",
+      "result": "unobservable",
+      "note": "CC 2.1.183 + Sonnet 4.x refuses in-context before calling any tool; auto-mode classifier never reached; PermissionDenied does not fire"
+    },
+    {
+      "event": "PermissionDenied",
+      "field": "hookSpecificOutput.retry",
+      "variant": "false",
+      "assertion": "spool-count-lte:1",
+      "result": "pass"
+    },
+    {
+      "event": "PermissionRequest",
+      "field": "hookSpecificOutput.decision.updatedInput",
+      "variant": null,
+      "assertion": "spool-present",
+      "result": "pass"
+    },
+    {
+      "event": "Elicitation",
+      "field": "hookSpecificOutput.action",
+      "variant": "accept",
+      "assertion": "pane-contains",
+      "result": "pass"
+    },
+    {
+      "event": "Elicitation",
+      "field": "hookSpecificOutput.action",
+      "variant": "decline",
+      "assertion": "pane-contains",
+      "result": "pass"
+    },
+    {
+      "event": "Elicitation",
+      "field": "hookSpecificOutput.content",
+      "variant": null,
+      "assertion": "pane-contains",
+      "result": "pass"
+    },
+    {
+      "event": "WorktreeCreate",
+      "field": "stdout bare path",
+      "variant": null,
+      "assertion": "unobservable",
+      "result": "unobservable",
+      "note": "requires git_repo environment plugin (seeded git repo); WorktreeCreate hook fires but git worktree add fails without a real repo; filesystem check cannot pass"
+    },
+    {
+      "event": "TaskCreated",
+      "field": "exit code 2",
+      "variant": null,
+      "assertion": "pane-contains",
+      "result": "unobservable",
+      "note": "requires agent-teams environment (P2 capability); unobservable outside that env"
+    },
+    {
+      "event": "UserPromptSubmit",
+      "field": "stopReason",
+      "variant": null,
+      "assertion": "pane-contains",
+      "result": "pass"
+    },
+    {
+      "event": "UserPromptSubmit",
+      "field": "systemMessage",
+      "variant": null,
+      "assertion": "pane-contains",
+      "result": "pass"
+    },
+    {
+      "event": "UserPromptSubmit",
+      "field": "terminalSequence",
+      "variant": null,
+      "assertion": "pane-contains",
+      "result": "unobservable",
+      "note": "tmux strips OSC control sequences from capture-pane output; classify unobservable if canary absent"
+    },
+    {
+      "event": "PreToolUse",
+      "field": "hookSpecificOutput.permissionDecision",
+      "variant": "ask",
+      "assertion": "pane-contains",
+      "result": "pass"
+    },
+    {
+      "event": "UserPromptSubmit",
+      "field": "reason",
+      "variant": null,
+      "assertion": "pane-contains",
+      "result": "pass"
+    },
+    {
+      "event": "PermissionRequest",
+      "field": "hookSpecificOutput.decision.message",
+      "variant": null,
+      "assertion": "pane-contains",
+      "result": "pass"
+    },
+    {
+      "event": "PreToolUse",
+      "field": "hookSpecificOutput.permissionDecision",
+      "variant": "defer",
+      "assertion": "unobservable",
+      "result": "unobservable",
+      "note": "Behaviorally indistinguishable from allow in TUI session; no external signal"
+    },
+    {
+      "event": "PermissionRequest",
+      "field": "hookSpecificOutput.decision.updatedPermissions",
+      "variant": null,
+      "assertion": "unobservable",
+      "result": "unobservable",
+      "note": "permission grant; no external signal observable from outside CC"
+    },
+    {
+      "event": "WorktreeCreate",
+      "field": "hookSpecificOutput.worktreePath",
+      "variant": null,
+      "assertion": "unobservable",
+      "result": "unobservable",
+      "note": "HTTP hook contract only; command hook does not carry this field"
+    },
+    {
+      "event": "PostToolUse",
+      "field": "hookSpecificOutput.additionalContext",
+      "variant": null,
+      "assertion": "unobservable",
+      "result": "unobservable",
+      "note": "same finding as PreToolUse additionalContext; model may receive context without echoing verbatim"
+    },
+    {
+      "event": "PostToolUse",
+      "field": "hookSpecificOutput.updatedMCPToolOutput",
+      "variant": null,
+      "assertion": "unobservable",
+      "result": "unobservable",
+      "note": "MCP-specific; not exercisable via built-in tool scenarios"
+    },
+    {
+      "event": "SessionStart",
+      "field": "hookSpecificOutput.additionalContext",
+      "variant": null,
+      "assertion": "unobservable",
+      "result": "unobservable",
+      "note": "same finding as PreToolUse additionalContext; model may receive context without echoing verbatim"
+    },
+    {
+      "event": "SessionStart",
+      "field": "hookSpecificOutput.initialUserMessage",
+      "variant": null,
+      "assertion": "unobservable",
+      "result": "unobservable",
+      "note": "applies in -p mode only; incompatible with tmux TUI drive"
+    },
+    {
+      "event": "SessionStart",
+      "field": "hookSpecificOutput.reloadSkills",
+      "variant": null,
+      "assertion": "unobservable",
+      "result": "unobservable",
+      "note": "no external signal"
+    },
+    {
+      "event": "UserPromptSubmit",
+      "field": "suppressOutput",
+      "variant": null,
+      "assertion": "unobservable",
+      "result": "unobservable",
+      "note": "suppresses hook's own stdout from CC transcript; no external signal"
+    },
+    {
+      "event": "MessageDisplay",
+      "field": "hookSpecificOutput.displayContent",
+      "variant": null,
+      "assertion": "unobservable",
+      "result": "unobservable",
+      "note": "none pattern: CC ignores hook output and exit code entirely for MessageDisplay"
+    },
+    {
+      "event": "PreToolUse",
+      "field": "hookSpecificOutput.permissionDecisionReason",
+      "variant": null,
+      "assertion": "unobservable",
+      "result": "unobservable",
+      "note": "no trigger mechanism available in standard TUI drive; field not yet validated"
+    },
+    {
+      "event": "Elicitation",
+      "field": "hookSpecificOutput.action",
+      "variant": "cancel",
+      "assertion": "unobservable",
+      "result": "unobservable",
+      "note": "cancel action not triggered by elicit-probe MCP server; scenario not yet written"
+    },
+    {
+      "event": "WorktreeCreate",
+      "field": "stdout-bare-path",
+      "variant": null,
+      "assertion": "unobservable",
+      "result": "unobservable",
+      "note": "requires git_repo env plugin; also tested as 'stdout bare path' in worktreecreate-stdout-path; FIELD_INVENTORY key uses hyphen"
+    },
+    {
+      "event": "UserPromptSubmit",
+      "field": "decision",
+      "variant": "block",
+      "assertion": "spool-absent",
+      "result": "pass",
+      "note": "tested in userpromptsub-block as 'hookSpecificOutput.decision'; FIELD_INVENTORY key is 'decision'"
+    },
+    {
+      "event": "UserPromptSubmit",
+      "field": "hookSpecificOutput.sessionTitle",
+      "variant": null,
+      "assertion": "unobservable",
+      "result": "unobservable",
+      "note": "no scenario; no external signal observable from pane"
+    },
+    {
+      "event": "PostToolUse",
+      "field": "decision",
+      "variant": "block",
+      "assertion": "pane-contains",
+      "result": "pass",
+      "note": "tested in posttooluse-block as 'hookSpecificOutput.decision' (pane-contains 'Blocked by hook'); FIELD_INVENTORY key is 'decision'"
+    },
+    {
+      "event": "SessionStart",
+      "field": "hookSpecificOutput.sessionTitle",
+      "variant": null,
+      "assertion": "unobservable",
+      "result": "unobservable",
+      "note": "no scenario; no external signal observable from pane"
+    },
+    {
+      "event": "TaskCreated",
+      "field": "exit-code-2",
+      "variant": null,
+      "assertion": "unobservable",
+      "result": "unobservable",
+      "note": "requires agent-teams env (P2); also tested as 'exit code 2' in taskcreated-exitcode2; FIELD_INVENTORY key uses hyphens"
+    },
+    {
+      "event": "UserPromptSubmit",
+      "field": "continue",
+      "variant": "false",
+      "assertion": "spool-present",
+      "result": "pass",
+      "note": "tested in commonoutput-continue-false as 'CommonOutput.continue' (spool-present, pass); FIELD_INVENTORY key is 'continue'"
+    }
+  ]
+}

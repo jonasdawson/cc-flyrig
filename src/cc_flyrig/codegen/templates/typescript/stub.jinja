@@ -1,0 +1,42 @@
+{% set is_statusline_family = decision_pattern in ("text-return", "jsonlines-rows") %}
+{% set settings_key = event[0]|lower ~ event[1:] %}
+{% if is_statusline_family %}
+// Edit handle() with your logic.
+// Wire into settings.json (a single command, not a hook array): { "{{ settings_key }}": { "type": "command", "command": "npx tsx <path>/index.ts" } }
+{% else %}
+// Edit handle() with your hook logic.
+// Wire into settings.json: { "{{ event }}": [{ "type": "command", "command": "npx tsx <path>/index.ts" }] }
+{% endif %}
+
+{% if decision_pattern == "none" %}
+import { {{ input_class }}, run } from "./_harness";
+
+function handle(event: {{ input_class }}): void {
+  // React to this {{ event }} event. Fill in your logic.
+  throw new Error("Not implemented");
+}
+{% elif decision_pattern == "text-return" %}
+import { {{ input_class }}, run } from "./_harness";
+
+function handle(event: {{ input_class }}): string {
+  // Return the status line text for this {{ event }} event.
+  throw new Error("Not implemented");
+}
+{% elif decision_pattern == "jsonlines-rows" %}
+import { {{ input_class }}, {{ output_class }}, run } from "./_harness";
+
+function handle(event: {{ input_class }}): {{ output_class }}[] {
+  // Return one {{ output_class }} row per visible subagent for this {{ event }} event.
+  throw new Error("Not implemented");
+}
+{% else %}
+import { {{ input_class }}, {{ output_class }}, run } from "./_harness";
+
+function handle(event: {{ input_class }}): {{ output_class }} | null {
+  // Decide what to do with this {{ event }} event.
+  // Return a {{ output_class }} to issue a decision, or null to defer to other hooks.
+  throw new Error("Not implemented");
+}
+{% endif %}
+
+run(handle);

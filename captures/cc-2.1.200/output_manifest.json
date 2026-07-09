@@ -1,0 +1,204 @@
+{
+  "cc_version": "2.1.200",
+  "validated_at": "2026-07-03T23:14:15.191867+00:00",
+  "run_id": "2f3347a7",
+  "summary": {
+    "pass": 22,
+    "unobservable": 5
+  },
+  "results": [
+    {
+      "event": "PreToolUse",
+      "field": "hookSpecificOutput.permissionDecision",
+      "variant": "deny",
+      "assertion": "spool-absent",
+      "result": "pass"
+    },
+    {
+      "event": "PreToolUse",
+      "field": "hookSpecificOutput.additionalContext",
+      "variant": null,
+      "assertion": "pane-contains",
+      "result": "pass"
+    },
+    {
+      "event": "PreToolUse",
+      "field": "hookSpecificOutput.permissionDecision",
+      "variant": "allow",
+      "assertion": "spool-present",
+      "result": "pass"
+    },
+    {
+      "event": "PreToolUse",
+      "field": "hookSpecificOutput.updatedInput",
+      "variant": null,
+      "assertion": "spool-present",
+      "result": "pass"
+    },
+    {
+      "event": "PermissionRequest",
+      "field": "hookSpecificOutput.decision.behavior",
+      "variant": "deny",
+      "assertion": "pane-contains",
+      "result": "pass"
+    },
+    {
+      "event": "PermissionRequest",
+      "field": "hookSpecificOutput.decision.behavior",
+      "variant": "allow",
+      "assertion": "spool-present",
+      "result": "pass"
+    },
+    {
+      "event": "PermissionRequest",
+      "field": "hookSpecificOutput.decision.interrupt",
+      "variant": null,
+      "assertion": "spool-absent",
+      "result": "pass"
+    },
+    {
+      "event": "PostToolUse",
+      "field": "hookSpecificOutput.decision",
+      "variant": "block",
+      "assertion": "pane-contains",
+      "result": "pass"
+    },
+    {
+      "event": "PostToolUse",
+      "field": "hookSpecificOutput.updatedToolOutput",
+      "variant": null,
+      "assertion": "pane-contains",
+      "result": "unobservable"
+    },
+    {
+      "event": "UserPromptSubmit",
+      "field": "hookSpecificOutput.decision",
+      "variant": "block",
+      "assertion": "spool-absent",
+      "result": "pass"
+    },
+    {
+      "event": "UserPromptSubmit",
+      "field": "CommonOutput.continue",
+      "variant": "false",
+      "assertion": "spool-present",
+      "result": "pass"
+    },
+    {
+      "event": "SessionStart",
+      "field": "hookSpecificOutput.watchPaths",
+      "variant": null,
+      "assertion": "spool-present",
+      "result": "pass"
+    },
+    {
+      "event": "CwdChanged",
+      "field": "hookSpecificOutput.watchPaths",
+      "variant": null,
+      "assertion": "spool-present",
+      "result": "pass"
+    },
+    {
+      "event": "PermissionDenied",
+      "field": "hookSpecificOutput.retry",
+      "variant": "true",
+      "assertion": "unobservable",
+      "result": "unobservable",
+      "note": "CC 2.1.183 + Sonnet 4.x refuses in-context before calling any tool; auto-mode classifier never reached; PermissionDenied does not fire"
+    },
+    {
+      "event": "PermissionDenied",
+      "field": "hookSpecificOutput.retry",
+      "variant": "false",
+      "assertion": "spool-count-lte:1",
+      "result": "pass"
+    },
+    {
+      "event": "PermissionRequest",
+      "field": "hookSpecificOutput.decision.updatedInput",
+      "variant": null,
+      "assertion": "spool-present",
+      "result": "pass"
+    },
+    {
+      "event": "Elicitation",
+      "field": "hookSpecificOutput.action",
+      "variant": "accept",
+      "assertion": "pane-contains",
+      "result": "pass"
+    },
+    {
+      "event": "Elicitation",
+      "field": "hookSpecificOutput.action",
+      "variant": "decline",
+      "assertion": "pane-contains",
+      "result": "pass"
+    },
+    {
+      "event": "Elicitation",
+      "field": "hookSpecificOutput.content",
+      "variant": null,
+      "assertion": "pane-contains",
+      "result": "pass"
+    },
+    {
+      "event": "WorktreeCreate",
+      "field": "stdout bare path",
+      "variant": null,
+      "assertion": "unobservable",
+      "result": "unobservable",
+      "note": "requires git_repo environment plugin (seeded git repo); WorktreeCreate hook fires but git worktree add fails without a real repo; filesystem check cannot pass"
+    },
+    {
+      "event": "TaskCreated",
+      "field": "exit code 2",
+      "variant": null,
+      "assertion": "pane-contains",
+      "result": "unobservable",
+      "note": "requires agent-teams environment (P2 capability); unobservable outside that env"
+    },
+    {
+      "event": "UserPromptSubmit",
+      "field": "stopReason",
+      "variant": null,
+      "assertion": "pane-contains",
+      "result": "pass"
+    },
+    {
+      "event": "UserPromptSubmit",
+      "field": "systemMessage",
+      "variant": null,
+      "assertion": "pane-contains",
+      "result": "pass"
+    },
+    {
+      "event": "UserPromptSubmit",
+      "field": "terminalSequence",
+      "variant": null,
+      "assertion": "pane-contains",
+      "result": "unobservable",
+      "note": "tmux strips OSC control sequences from capture-pane output; classify unobservable if canary absent"
+    },
+    {
+      "event": "PreToolUse",
+      "field": "hookSpecificOutput.permissionDecision",
+      "variant": "ask",
+      "assertion": "pane-contains",
+      "result": "pass"
+    },
+    {
+      "event": "UserPromptSubmit",
+      "field": "reason",
+      "variant": null,
+      "assertion": "pane-contains",
+      "result": "pass"
+    },
+    {
+      "event": "PermissionRequest",
+      "field": "hookSpecificOutput.decision.message",
+      "variant": null,
+      "assertion": "pane-contains",
+      "result": "pass"
+    }
+  ]
+}

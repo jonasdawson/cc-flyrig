@@ -1,0 +1,3 @@
+# Captured payloads live here, one directory per CC version (cc-<version>/).
+# Populated by the maintainer capture run; the raw .spool/ is gitignored.
+# See ../capture/README.md and ../docs/DECISIONS/0007-capture-harness.md.

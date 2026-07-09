@@ -1,0 +1,36 @@
+# Output Contract Coverage — cc-{{ report.cc_version }}
+
+> **Validation limit.** Validation is by behavioral effect, not by shape-completeness: CC accepting
+> a field is observed only through its downstream effect (tool blocked, input modified, etc.). A
+> `pass` means the expected effect was observed; it does not mean CC parsed or stored every field
+> correctly.
+
+> **Model-observed fields** (require a follow-up turn): CC never echoes back what it accepted
+> internally, so these fields are validated indirectly — a hook emits a unique canary string, and
+> a follow-up prompt checks whether the model reproduces it. Classified `unobservable` if the
+> canary was absent from the model's response.
+
+> **Structurally unobservable fields**: unreachable from outside CC (MCP-specific wire, HTTP-only
+> contract, `-p` mode only, or no external signal). Classified `unobservable` without testing.
+
+> **`none`-pattern events**: CC ignores hook output and exit code entirely for these events.
+> All fields are `unobservable` by pattern.
+
+Validated: {{ report.validated_at or "not yet validated" }}
+
+## Summary
+
+| Result | Count |
+| --- | --- |
+| pass | {{ report.passed }} |
+| fail | {{ report.failed }} |
+| unobservable | {{ report.unobservable }} |
+| not-tested | {{ report.not_tested }} |
+
+## Field results
+
+| Event | Field | Variant | Result | Note |
+| --- | --- | --- | --- | --- |
+{% for row in report.rows %}
+| {{ row.event }} | {{ row.field }} | {{ row.variant or "—" }} | {{ row.result }} | {{ row.note or "" }} |
+{% endfor %}

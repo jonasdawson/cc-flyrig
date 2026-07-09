@@ -1,0 +1,44 @@
+# `/hooks` Menu — cc-{{ report.cc_version }}
+
+> **What this is.** The Claude Code `/hooks` TUI menu, scraped from the running binary. MENU is
+> **roster-authoritative** (its event set is the binary's own enumeration), a **cross-check** for
+> field names and exit codes, and **doc-informal** otherwise. The notes below are scraped help text,
+> not the contract authority — the IR (typed JSON Schema) remains authoritative for shapes. Menu
+> prose is never machine-merged; it is promoted to IR `x-` annotations only by maintainer judgment.
+
+## Roster
+
+{% if report.matches_ir %}
+Documented {{ report.total }}/{{ report.ir_total }} — **matches the IR roster.**
+{% else %}
+Documented {{ report.total }} events; IR roster has {{ report.ir_total }} — **differs.**
+
+{% if report.menu_only %}
+- Menu-only (documented by `/hooks`, absent from IR): {{ report.menu_only | join(", ") }}
+{% endif %}
+{% if report.ir_only %}
+- IR-only (in IR, not documented by `/hooks`): {{ report.ir_only | join(", ") }}
+{% endif %}
+{% endif %}
+
+## Cross-check (advisory)
+
+{% if report.advisory %}
+Field names documented by `/hooks` but absent from the IR — review; advisory only, never gates CI:
+
+| Event | Finding |
+| --- | --- |
+{% for row in report.advisory %}
+| {{ row.event }} | {{ row.detail }} |
+{% endfor %}
+{% else %}
+No menu-named field is absent from the IR.
+{% endif %}
+
+## Entries
+
+| Event | Description | Exit codes | Input note | Output note |
+| --- | --- | --- | --- | --- |
+{% for e in report.entries %}
+| {{ e.event }} | {{ e.description }} | {{ e.exit_codes | replace("\n", "; ") }} | {{ e.input_note }} | {{ e.output_note }} |
+{% endfor %}

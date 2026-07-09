@@ -1,0 +1,2 @@
+{"action": "accept", "content": {"value": "capture-value"}, "cwd": "/tmp/cch-sandboxes/20260607T173825/elicitation", "hook_event_name": "ElicitationResult", "mcp_server_name": "elicit-probe", "mode": "form", "session_id": "<SESSION_ID>", "transcript_path": "<TRANSCRIPT_PATH>"}
+{"action": "accept", "content": {"value": "capture-value"}, "cwd": "/tmp/cch-sandboxes/elicit-elicit-d/elicit-d71f1994/elicitation", "hook_event_name": "ElicitationResult", "mcp_server_name": "elicit-probe", "mode": "form", "session_id": "<SESSION_ID>", "transcript_path": "<TRANSCRIPT_PATH>"}

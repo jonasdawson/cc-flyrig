@@ -1,0 +1,43 @@
+{% set is_statusline_family = decision_pattern in ("text-return", "jsonlines-rows") %}
+{% set settings_key = event[0]|lower ~ event[1:] %}
+#!/usr/bin/env python3
+{% if is_statusline_family %}
+# Edit handle() with your logic.
+# Wire into settings.json (a single command, not a hook array): { "{{ settings_key }}": { "type": "command", "command": "python -m <pkg>.{{ event_snake }}" } }
+{% else %}
+# Edit handle() with your hook logic.
+# Wire into settings.json: { "{{ event }}": [{ "type": "command", "command": "python -m <pkg>.{{ event_snake }}" }] }
+{% endif %}
+
+import sys
+{% if decision_pattern in ("none", "text-return") %}
+from ._harness import {{ input_class }}, run
+{% else %}
+from ._harness import {{ input_class }}, {{ output_class }}, run
+{% endif %}
+
+
+{% if decision_pattern == "none" %}
+def handle(event: {{ input_class }}) -> None:
+    """React to this {{ event }} event. Fill in your logic."""
+    raise NotImplementedError
+{% elif decision_pattern == "text-return" %}
+def handle(event: {{ input_class }}) -> str:
+    """Return the status line text for this {{ event }} event."""
+    raise NotImplementedError
+{% elif decision_pattern == "jsonlines-rows" %}
+def handle(event: {{ input_class }}) -> list[{{ output_class }}]:
+    """Return one {{ output_class }} row per visible subagent for this {{ event }} event."""
+    raise NotImplementedError
+{% else %}
+def handle(event: {{ input_class }}) -> {{ output_class }} | None:
+    """Decide what to do with this {{ event }} event.
+
+    Return a {{ output_class }} to issue a decision, or None to defer to other hooks.
+    """
+    raise NotImplementedError
+{% endif %}
+
+
+if __name__ == "__main__":
+    sys.exit(run(handle))

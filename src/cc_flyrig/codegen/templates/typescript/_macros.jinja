@@ -1,0 +1,152 @@
+{# TypeScript-target rendering macros: TypeNode -> TS type syntax, wire-name -> camelCase identifier,
+   and the model block (string-literal `type` aliases, `interface`s, and parse*/serialize* functions).
+   This file is the TypeScript contribution surface — the Python pipeline core is untouched. No
+   formatter runs on the output (feature Q4), so these macros emit clean TS directly (2-space indent).
+   An esbuild syntax check gates generation instead (toolchain.CHECKERS, "checker": "esbuild" in the
+   runtime profile); tsc type-checks the output in tests and at release.
+
+   At runtime a TS string-literal union is just a string, so enum-typed fields pass through unchanged;
+   only `interface` references (and arrays of them) get parse*/serialize* conversion. #}
+
+{# ---- naming -------------------------------------------------------------------------------------- #}
+
+{% macro lang_name(json_name) %}
+{%- set parts = json_name.split("_") -%}
+{%- set ns = namespace(out=parts[0]) -%}
+{%- for p in parts[1:] -%}
+{%- if p -%}{%- set ns.out = ns.out ~ (p[0] | upper) ~ p[1:] -%}{%- endif -%}
+{%- endfor -%}
+{{ ns.out }}
+{%- endmacro %}
+
+{# ---- type rendering ------------------------------------------------------------------------------ #}
+
+{% macro ts_literal(v) %}
+{%- if v is boolean -%}{{ "true" if v else "false" }}{%- elif v is string -%}"{{ v }}"{%- else -%}{{ v }}{%- endif -%}
+{% endmacro %}
+
+{% macro render_type(node) %}
+{%- if node.kind == "scalar" -%}
+{{ {"string": "string", "boolean": "boolean", "integer": "number", "number": "number"}[node.name] }}
+{%- elif node.kind == "ref" -%}
+{{ node.class_name }}
+{%- elif node.kind == "array" -%}
+{%- if node.items.kind == "union" -%}({{ render_type(node.items) }})[]{%- else -%}{{ render_type(node.items) }}[]{%- endif -%}
+{%- elif node.kind == "union" -%}
+{%- set ns = namespace(parts=[]) -%}
+{%- for m in node.members -%}
+{%- set rendered = render_type(m) -%}
+{%- if rendered not in ns.parts -%}{%- set _ = ns.parts.append(rendered) -%}{%- endif -%}
+{%- endfor -%}
+{{ ns.parts | join(" | ") }}
+{%- elif node.kind == "literal" -%}
+{%- set ns = namespace(parts=[]) -%}
+{%- for v in node.values -%}{%- set _ = ns.parts.append(ts_literal(v)) -%}{%- endfor -%}
+{{ ns.parts | join(" | ") }}
+{%- elif node.kind == "open_object" -%}
+Record<string, unknown>
+{%- endif -%}
+{% endmacro %}
+
+{# ---- (de)serialization conversions --------------------------------------------------------------- #}
+
+{% macro parse_expr(field, record_names) %}
+{%- set node = field.type_node -%}
+{%- set key = 'data["' ~ field.json_name ~ '"]' -%}
+{%- set is_dc = node.kind == "ref" and node.class_name in record_names -%}
+{%- set is_list_dc = node.kind == "array" and node.items.kind == "ref" and node.items.class_name in record_names -%}
+{%- if is_dc -%}
+{%- if field.required -%}parse{{ node.class_name }}({{ key }}){%- else -%}{{ key }} != null ? parse{{ node.class_name }}({{ key }}) : undefined{%- endif -%}
+{%- elif is_list_dc -%}
+{%- if field.required -%}{{ key }}.map(parse{{ node.items.class_name }}){%- else -%}{{ key }} != null ? {{ key }}.map(parse{{ node.items.class_name }}) : undefined{%- endif -%}
+{%- else -%}
+{%- if field.required -%}{{ key }}{%- else -%}{{ key }} ?? undefined{%- endif -%}
+{%- endif -%}
+{% endmacro %}
+
+{% macro serialize_value(field, record_names) %}
+{%- set node = field.type_node -%}
+{%- set attr = "obj." ~ lang_name(field.json_name) -%}
+{%- if node.kind == "ref" and node.class_name in record_names -%}serialize{{ node.class_name }}({{ attr }})
+{%- elif node.kind == "array" and node.items.kind == "ref" and node.items.class_name in record_names -%}{{ attr }}.map(serialize{{ node.items.class_name }})
+{%- else -%}{{ attr }}
+{%- endif -%}
+{% endmacro %}
+
+{# ---- type aliases & interfaces ------------------------------------------------------------------- #}
+
+{% macro emit_enum(spec) %}
+{%- set ns = namespace(lines=[]) -%}
+{%- if spec.doc -%}{%- set _ = ns.lines.append("/** " ~ spec.doc ~ " */") -%}{%- endif -%}
+{%- set values = [] -%}
+{%- for v in spec.wire_values -%}{%- set _ = values.append('"' ~ v ~ '"') -%}{%- endfor -%}
+{%- set _ = ns.lines.append("export type " ~ spec.class_name ~ " = " ~ (values | join(" | ")) ~ ";") -%}
+{{ ns.lines | join("\n") }}
+{%- endmacro %}
+
+{% macro emit_interface(spec) %}
+{%- set ns = namespace(lines=[]) -%}
+{%- if spec.doc -%}{%- set _ = ns.lines.append("/** " ~ spec.doc ~ " */") -%}{%- endif -%}
+{%- if not spec.fields -%}
+{%- set _ = ns.lines.append("export interface " ~ spec.class_name ~ " {}") -%}
+{%- else -%}
+{%- set _ = ns.lines.append("export interface " ~ spec.class_name ~ " {") -%}
+{%- for field in spec.fields -%}
+{%- if field.doc -%}{%- set _ = ns.lines.append("  /** " ~ field.doc ~ " */") -%}{%- endif -%}
+{%- set opt = "" if field.required else "?" -%}
+{%- set _ = ns.lines.append("  " ~ lang_name(field.json_name) ~ opt ~ ": " ~ render_type(field.type_node) ~ ";") -%}
+{%- endfor -%}
+{%- set _ = ns.lines.append("}") -%}
+{%- endif -%}
+{{ ns.lines | join("\n") }}
+{%- endmacro %}
+
+{# ---- parse / serialize functions ----------------------------------------------------------------- #}
+
+{% macro emit_parse(spec, record_names) %}
+{%- set ns = namespace(lines=["export function parse" ~ spec.class_name ~ "(data: Record<string, any>): " ~ spec.class_name ~ " {"]) -%}
+{%- if not spec.fields -%}
+{%- set _ = ns.lines.append("  return {};") -%}
+{%- else -%}
+{%- set _ = ns.lines.append("  return {") -%}
+{%- for field in spec.fields -%}
+{%- set _ = ns.lines.append("    " ~ lang_name(field.json_name) ~ ": " ~ parse_expr(field, record_names) ~ ",") -%}
+{%- endfor -%}
+{%- set _ = ns.lines.append("  };") -%}
+{%- endif -%}
+{%- set _ = ns.lines.append("}") -%}
+{{ ns.lines | join("\n") }}
+{%- endmacro %}
+
+{% macro emit_serialize(spec, record_names) %}
+{%- set ns = namespace(lines=["export function serialize" ~ spec.class_name ~ "(obj: " ~ spec.class_name ~ "): Record<string, any> {", "  const result: Record<string, any> = {};"]) -%}
+{%- for field in spec.fields -%}
+{%- set key = '"' ~ field.json_name ~ '"' -%}
+{%- if field.required -%}
+{%- set _ = ns.lines.append("  result[" ~ key ~ "] = " ~ serialize_value(field, record_names) ~ ";") -%}
+{%- else -%}
+{%- set _ = ns.lines.append("  if (obj." ~ lang_name(field.json_name) ~ " !== undefined) {") -%}
+{%- set _ = ns.lines.append("    result[" ~ key ~ "] = " ~ serialize_value(field, record_names) ~ ";") -%}
+{%- set _ = ns.lines.append("  }") -%}
+{%- endif -%}
+{%- endfor -%}
+{%- set _ = ns.lines.append("  return result;") -%}
+{%- set _ = ns.lines.append("}") -%}
+{{ ns.lines | join("\n") }}
+{%- endmacro %}
+
+{# ---- module assembly ----------------------------------------------------------------------------- #}
+
+{% macro emit_model(specs) %}
+{%- set record_names = specs | selectattr("kind", "equalto", "record") | map(attribute="class_name") | list -%}
+{%- set types = [] -%}
+{%- for spec in specs -%}
+{%- if spec.kind == "enum" -%}{%- set _ = types.append(emit_enum(spec)) -%}
+{%- else -%}{%- set _ = types.append(emit_interface(spec)) -%}{%- endif -%}
+{%- endfor -%}
+{%- set parsers = [] -%}
+{%- for spec in specs if spec.kind == "record" -%}{%- set _ = parsers.append(emit_parse(spec, record_names)) -%}{%- endfor -%}
+{%- set serializers = [] -%}
+{%- for spec in specs if spec.kind == "record" -%}{%- set _ = serializers.append(emit_serialize(spec, record_names)) -%}{%- endfor -%}
+{{ (types | join("\n\n")) ~ "\n\n" ~ (parsers | join("\n\n")) ~ "\n\n" ~ (serializers | join("\n\n")) }}
+{%- endmacro %}

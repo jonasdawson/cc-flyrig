@@ -1,0 +1,1 @@
+{"cwd": "/tmp/cch-sandboxes/20260620T170014/stop-failure", "error": "rate_limit", "hook_event_name": "StopFailure", "last_assistant_message": "API Error: Server is temporarily limiting requests (not your usage limit) · Rate limit reached (capture fixture)", "session_id": "<SESSION_ID>", "transcript_path": "<TRANSCRIPT_PATH>"}

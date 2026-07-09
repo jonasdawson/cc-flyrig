@@ -1,0 +1,33 @@
+[project]
+name = "cc-flyrig"
+version = "0.1.0"
+description = "Write Claude Code hooks and customize your TUI status line in a familiar language — copy in a typed, zero-dependency scaffold and fill in handle()."
+authors = [{ name = "Jonas Dawson", email = "dawson.jonas@gmail.com" }]
+license = "Apache-2.0"
+requires-python = ">=3.12"
+
+[project.urls]
+Homepage = "https://github.com/jonasdawson/cc-flyrig"
+Repository = "https://github.com/jonasdawson/cc-flyrig"
+
+[dependency-groups]
+dev = [
+    "jinja2==3.1.6",
+    "jsonschema==4.26.0",
+    "pytest==9.1.1",
+    "referencing==0.37.0",
+    "ruff==0.15.20",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+addopts = ["--import-mode=importlib"]
+
+[tool.ruff]
+line-length = 120
+target-version = "py312"
+extend-exclude = ["scaffolds", "tests/codegen/golden"]
+
+[tool.ruff.lint]
+select = ["E", "W", "F"]

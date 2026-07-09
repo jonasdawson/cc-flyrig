@@ -1,0 +1,2157 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schemas/cc-2.1.193/hooks.schema.json",
+  "title": "Claude Code Hook Events",
+  "description": "Canonical IR for Claude Code hook event I/O shapes. Reference-authored per ADR 0006. CC version 2.1.193.",
+  "x-cc-version": "2.1.193",
+  "x-schema-date": "2026-07-08",
+  "$defs": {
+    "PermissionMode": {
+      "type": "string",
+      "enum": [
+        "default",
+        "plan",
+        "acceptEdits",
+        "auto",
+        "dontAsk",
+        "bypassPermissions"
+      ]
+    },
+    "EffortLevel": {
+      "type": "string",
+      "enum": [
+        "low",
+        "medium",
+        "high",
+        "xhigh",
+        "max"
+      ]
+    },
+    "EffortObject": {
+      "type": "object",
+      "required": [
+        "level"
+      ],
+      "properties": {
+        "level": {
+          "$ref": "#/$defs/EffortLevel"
+        }
+      }
+    },
+    "OpenObject": {
+      "type": "object",
+      "description": "Open JSON object \u2014 tool_input and tool_response left untyped per ADR 0006."
+    },
+    "CommonInput": {
+      "type": "object",
+      "required": [
+        "session_id",
+        "transcript_path",
+        "cwd",
+        "hook_event_name"
+      ],
+      "properties": {
+        "session_id": {
+          "type": "string",
+          "description": "Current session identifier."
+        },
+        "transcript_path": {
+          "type": "string",
+          "description": "Path to conversation JSON."
+        },
+        "cwd": {
+          "type": "string",
+          "description": "Current working directory when the hook is invoked."
+        },
+        "hook_event_name": {
+          "type": "string",
+          "description": "Name of the event that fired."
+        },
+        "permission_mode": {
+          "$ref": "#/$defs/PermissionMode",
+          "description": "Current permission mode. Not all events include this field."
+        },
+        "effort": {
+          "$ref": "#/$defs/EffortObject",
+          "description": "Active effort level for the turn. Present for events that fire within a tool-use context when the current model supports the effort parameter."
+        },
+        "agent_id": {
+          "type": "string",
+          "description": "Unique identifier for the subagent. Present only when the hook fires inside a subagent call."
+        },
+        "agent_type": {
+          "type": "string",
+          "description": "Agent name. Present when the session uses --agent or the hook fires inside a subagent."
+        },
+        "prompt_id": {
+          "type": "string",
+          "description": "UUID identifying the user prompt (turn) currently being processed. Matches the prompt.id attribute on OpenTelemetry events, so hook output can be correlated with telemetry for a single prompt. Absent until the first user input (e.g. session lifecycle events before any prompt). Requires Claude Code v2.1.196 or later.",
+          "x-version-gated": "2.1.196"
+        }
+      }
+    },
+    "CommonOutput": {
+      "type": "object",
+      "properties": {
+        "continue": {
+          "type": "boolean",
+          "default": true,
+          "description": "If false, Claude stops processing entirely after the hook runs."
+        },
+        "stopReason": {
+          "type": "string",
+          "description": "Message shown to the user when continue is false. Not shown to Claude."
+        },
+        "suppressOutput": {
+          "type": "boolean",
+          "default": false,
+          "description": "If true, hides the hook's stdout from the transcript."
+        },
+        "systemMessage": {
+          "type": "string",
+          "description": "Warning message shown to the user."
+        },
+        "terminalSequence": {
+          "type": "string",
+          "description": "One or more terminal escape sequences for Claude Code to emit through its own terminal write path (race-free, works inside tmux/screen and on Windows). Each sequence must be terminated with BEL (\\u0007) or ST (ESC \\\\). Multiple sequences may be concatenated into a single string. Allowed: OSC 0/1/2 (window and icon title), OSC 9 (iTerm2, ConEmu, WezTerm, Windows Terminal notifications; OSC 9;4 sets taskbar progress), OSC 99 (Kitty notifications), OSC 777 (urxvt, Ghostty, Warp notifications), bare BEL. Anything outside this allowlist \u2014 CSI cursor/color sequences, OSC 8 hyperlinks, OSC 52 clipboard writes, OSC 1337, OSC palette sequences \u2014 is rejected and the entire field is ignored.",
+          "examples": [
+            "]777;notify;Claude Code;Build complete",
+            "]9;4;1;50",
+            "]0;my-window-title",
+            ""
+          ],
+          "x-version-gated": "2.1.141"
+        }
+      }
+    },
+    "BackgroundTask": {
+      "type": "object",
+      "required": [
+        "id",
+        "type",
+        "status",
+        "description"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Task identifier."
+        },
+        "type": {
+          "type": "string",
+          "description": "Friendly task-type label such as shell, subagent, monitor, workflow, teammate, cloud session, or MCP task."
+        },
+        "status": {
+          "type": "string",
+          "description": "Current task status."
+        },
+        "description": {
+          "type": "string",
+          "description": "Free-text description, capped at 1000 characters."
+        },
+        "command": {
+          "type": "string",
+          "description": "Shell command line. Present only for shell tasks."
+        },
+        "agent_type": {
+          "type": "string",
+          "description": "Subagent type name. Present only for subagent tasks."
+        },
+        "server": {
+          "type": "string",
+          "description": "MCP server name. Present only for monitor and MCP task tasks."
+        },
+        "tool": {
+          "type": "string",
+          "description": "MCP tool name. Present only for monitor and MCP task tasks."
+        },
+        "name": {
+          "type": "string",
+          "description": "Workflow name. Present only for workflow tasks."
+        }
+      }
+    },
+    "SessionCron": {
+      "type": "object",
+      "required": [
+        "id",
+        "schedule",
+        "recurring",
+        "prompt"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Cron task identifier."
+        },
+        "schedule": {
+          "type": "string",
+          "description": "Cron expression, for example 0 9 * * 1-5."
+        },
+        "recurring": {
+          "type": "boolean",
+          "description": "false for one-shot wakeups, true for tasks that re-fire on every match."
+        },
+        "prompt": {
+          "type": "string",
+          "description": "Prompt submitted when the cron fires, capped at 1000 characters."
+        }
+      }
+    },
+    "ToolCallEntry": {
+      "type": "object",
+      "required": [
+        "tool_name",
+        "tool_input",
+        "tool_use_id",
+        "tool_response"
+      ],
+      "properties": {
+        "tool_name": {
+          "type": "string"
+        },
+        "tool_input": {
+          "$ref": "#/$defs/OpenObject"
+        },
+        "tool_use_id": {
+          "type": "string"
+        },
+        "tool_response": {
+          "description": "The serialized tool_result content the model sees. A string or content-block array.",
+          "oneOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "array",
+              "items": {
+                "type": "object"
+              }
+            }
+          ]
+        }
+      }
+    },
+    "PermissionUpdateEntry": {
+      "type": "object",
+      "required": [
+        "type",
+        "destination"
+      ],
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": [
+            "addRules",
+            "replaceRules",
+            "removeRules",
+            "setMode",
+            "addDirectories",
+            "removeDirectories"
+          ]
+        },
+        "destination": {
+          "type": "string",
+          "enum": [
+            "session",
+            "localSettings",
+            "projectSettings",
+            "userSettings"
+          ]
+        },
+        "rules": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "toolName": {
+                "type": "string"
+              },
+              "ruleContent": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "toolName"
+            ]
+          },
+          "description": "For addRules/replaceRules/removeRules."
+        },
+        "behavior": {
+          "type": "string",
+          "enum": [
+            "allow",
+            "deny",
+            "ask"
+          ],
+          "description": "For addRules/replaceRules/removeRules."
+        },
+        "mode": {
+          "type": "string",
+          "enum": [
+            "default",
+            "auto",
+            "acceptEdits",
+            "dontAsk",
+            "bypassPermissions",
+            "plan"
+          ],
+          "description": "For setMode."
+        },
+        "directories": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "For addDirectories/removeDirectories."
+        }
+      }
+    },
+    "PermissionSuggestion": {
+      "$ref": "#/$defs/PermissionUpdateEntry",
+      "description": "An always-allow option from the permission dialog. Same shape as PermissionUpdateEntry."
+    },
+    "SessionStartInput": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/CommonInput"
+        },
+        {
+          "type": "object",
+          "required": [
+            "source"
+          ],
+          "properties": {
+            "source": {
+              "type": "string",
+              "enum": [
+                "startup",
+                "resume",
+                "clear",
+                "compact"
+              ],
+              "description": "How the session was initiated."
+            },
+            "model": {
+              "type": "string",
+              "description": "Model identifier. Only SessionStart hooks receive this field. Absent on the --init-only launch path."
+            },
+            "session_title": {
+              "type": "string",
+              "description": "Current session title if one is already set."
+            }
+          }
+        }
+      ]
+    },
+    "SetupInput": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/CommonInput"
+        },
+        {
+          "type": "object",
+          "required": [
+            "trigger"
+          ],
+          "properties": {
+            "trigger": {
+              "type": "string",
+              "enum": [
+                "init",
+                "maintenance"
+              ],
+              "description": "CLI flag that triggered the hook."
+            }
+          }
+        }
+      ]
+    },
+    "InstructionsLoadedInput": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/CommonInput"
+        },
+        {
+          "type": "object",
+          "required": [
+            "file_path",
+            "memory_type",
+            "load_reason"
+          ],
+          "properties": {
+            "file_path": {
+              "type": "string",
+              "description": "Absolute path to the instruction file that was loaded."
+            },
+            "memory_type": {
+              "type": "string",
+              "enum": [
+                "User",
+                "Project",
+                "Local",
+                "Managed"
+              ],
+              "description": "Scope of the file."
+            },
+            "load_reason": {
+              "type": "string",
+              "enum": [
+                "session_start",
+                "nested_traversal",
+                "path_glob_match",
+                "include",
+                "compact"
+              ],
+              "description": "Why the file was loaded."
+            },
+            "globs": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "description": "Path glob patterns from the file's paths: frontmatter. Present only for path_glob_match loads."
+            },
+            "trigger_file_path": {
+              "type": "string",
+              "description": "Path to the file whose access triggered this load, for lazy loads."
+            },
+            "parent_file_path": {
+              "type": "string",
+              "description": "Path to the parent instruction file that included this one, for include loads."
+            }
+          }
+        }
+      ]
+    },
+    "UserPromptSubmitInput": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/CommonInput"
+        },
+        {
+          "type": "object",
+          "required": [
+            "prompt"
+          ],
+          "properties": {
+            "prompt": {
+              "type": "string",
+              "description": "The text the user submitted."
+            }
+          }
+        }
+      ]
+    },
+    "UserPromptExpansionInput": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/CommonInput"
+        },
+        {
+          "type": "object",
+          "required": [
+            "expansion_type",
+            "command_name",
+            "prompt"
+          ],
+          "properties": {
+            "expansion_type": {
+              "type": "string",
+              "enum": [
+                "slash_command",
+                "mcp_prompt"
+              ],
+              "description": "slash_command for skill and custom commands, mcp_prompt for MCP server prompts."
+            },
+            "command_name": {
+              "type": "string",
+              "description": "The command name that was expanded."
+            },
+            "command_args": {
+              "type": "string",
+              "description": "Arguments passed to the command."
+            },
+            "command_source": {
+              "type": "string",
+              "description": "Source of the command (e.g. plugin)."
+            },
+            "prompt": {
+              "type": "string",
+              "description": "The original prompt string."
+            }
+          }
+        }
+      ]
+    },
+    "MessageDisplayInput": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/CommonInput"
+        },
+        {
+          "type": "object",
+          "required": [
+            "turn_id",
+            "message_id",
+            "index",
+            "final",
+            "delta"
+          ],
+          "properties": {
+            "turn_id": {
+              "type": "string",
+              "description": "UUID of the current turn."
+            },
+            "message_id": {
+              "type": "string",
+              "description": "UUID of the assistant message being displayed. Stable across every batch of the same message."
+            },
+            "index": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "Zero-based index of this batch within the message."
+            },
+            "final": {
+              "type": "boolean",
+              "description": "true on the message's last batch. Each message has exactly one final batch."
+            },
+            "delta": {
+              "type": "string",
+              "description": "The newly completed lines since the prior batch. Always whole lines except the final batch."
+            }
+          }
+        }
+      ]
+    },
+    "PreToolUseInput": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/CommonInput"
+        },
+        {
+          "type": "object",
+          "required": [
+            "tool_name",
+            "tool_input",
+            "tool_use_id"
+          ],
+          "properties": {
+            "tool_name": {
+              "type": "string",
+              "description": "Name of the tool being called."
+            },
+            "tool_input": {
+              "$ref": "#/$defs/OpenObject",
+              "description": "Tool input parameters. Shape depends on the tool."
+            },
+            "tool_use_id": {
+              "type": "string",
+              "description": "Unique identifier for this tool call."
+            }
+          }
+        }
+      ]
+    },
+    "PermissionRequestInput": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/CommonInput"
+        },
+        {
+          "type": "object",
+          "required": [
+            "tool_name",
+            "tool_input"
+          ],
+          "properties": {
+            "tool_name": {
+              "type": "string",
+              "description": "Name of the tool requesting permission."
+            },
+            "tool_input": {
+              "$ref": "#/$defs/OpenObject",
+              "description": "Tool input parameters. Shape depends on the tool."
+            },
+            "permission_suggestions": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/PermissionSuggestion"
+              },
+              "description": "The always-allow options the user would normally see in the permission dialog."
+            }
+          }
+        }
+      ]
+    },
+    "PostToolUseInput": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/CommonInput"
+        },
+        {
+          "type": "object",
+          "required": [
+            "tool_name",
+            "tool_input",
+            "tool_response",
+            "tool_use_id"
+          ],
+          "properties": {
+            "tool_name": {
+              "type": "string",
+              "description": "Name of the tool that completed."
+            },
+            "tool_input": {
+              "$ref": "#/$defs/OpenObject",
+              "description": "Arguments sent to the tool."
+            },
+            "tool_response": {
+              "description": "Result returned by the tool. Object for built-in tools; content-block array for MCP tools.",
+              "oneOf": [
+                {
+                  "$ref": "#/$defs/OpenObject"
+                },
+                {
+                  "type": "array",
+                  "items": {
+                    "type": "object"
+                  }
+                }
+              ]
+            },
+            "tool_use_id": {
+              "type": "string",
+              "description": "Unique identifier for this tool call."
+            },
+            "duration_ms": {
+              "type": "number",
+              "description": "Tool execution time in milliseconds. Excludes time in permission prompts and PreToolUse hooks."
+            }
+          }
+        }
+      ]
+    },
+    "PostToolUseFailureInput": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/CommonInput"
+        },
+        {
+          "type": "object",
+          "required": [
+            "tool_name",
+            "tool_input",
+            "tool_use_id",
+            "error"
+          ],
+          "properties": {
+            "tool_name": {
+              "type": "string",
+              "description": "Name of the tool that failed."
+            },
+            "tool_input": {
+              "$ref": "#/$defs/OpenObject",
+              "description": "Arguments sent to the tool."
+            },
+            "tool_use_id": {
+              "type": "string",
+              "description": "Unique identifier for this tool call."
+            },
+            "error": {
+              "type": "string",
+              "description": "String describing what went wrong."
+            },
+            "is_interrupt": {
+              "type": "boolean",
+              "description": "Whether the failure was caused by user interruption."
+            },
+            "duration_ms": {
+              "type": "number",
+              "description": "Tool execution time in milliseconds."
+            },
+            "error_type": {
+              "type": "string",
+              "description": "Category of the failure."
+            },
+            "is_timeout": {
+              "type": "boolean",
+              "description": "Whether the failure was a timeout."
+            }
+          }
+        }
+      ]
+    },
+    "PostToolBatchInput": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/CommonInput"
+        },
+        {
+          "type": "object",
+          "required": [
+            "tool_calls"
+          ],
+          "properties": {
+            "tool_calls": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/ToolCallEntry"
+              },
+              "description": "Every tool call in the batch."
+            }
+          }
+        }
+      ]
+    },
+    "PermissionDeniedInput": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/CommonInput"
+        },
+        {
+          "type": "object",
+          "required": [
+            "tool_name",
+            "tool_input",
+            "tool_use_id",
+            "reason"
+          ],
+          "properties": {
+            "tool_name": {
+              "type": "string",
+              "description": "Name of the tool that was denied."
+            },
+            "tool_input": {
+              "$ref": "#/$defs/OpenObject",
+              "description": "Tool input parameters."
+            },
+            "tool_use_id": {
+              "type": "string",
+              "description": "Unique identifier for the denied tool call."
+            },
+            "reason": {
+              "type": "string",
+              "description": "The classifier's explanation for why the tool call was denied."
+            }
+          }
+        }
+      ]
+    },
+    "NotificationInput": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/CommonInput"
+        },
+        {
+          "type": "object",
+          "required": [
+            "message",
+            "notification_type"
+          ],
+          "properties": {
+            "message": {
+              "type": "string",
+              "description": "The notification text."
+            },
+            "title": {
+              "type": "string",
+              "description": "Optional notification title."
+            },
+            "notification_type": {
+              "type": "string",
+              "enum": [
+                "permission_prompt",
+                "idle_prompt",
+                "auth_success",
+                "elicitation_dialog",
+                "elicitation_complete",
+                "elicitation_response"
+              ],
+              "description": "Which notification type fired."
+            }
+          }
+        }
+      ]
+    },
+    "SubagentStartInput": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/CommonInput"
+        },
+        {
+          "type": "object",
+          "required": [
+            "agent_id",
+            "agent_type"
+          ],
+          "properties": {
+            "agent_id": {
+              "type": "string",
+              "description": "Unique identifier for the subagent."
+            },
+            "agent_type": {
+              "type": "string",
+              "description": "Agent name (built-in or custom agent name from frontmatter)."
+            }
+          }
+        }
+      ]
+    },
+    "SubagentStopInput": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/CommonInput"
+        },
+        {
+          "type": "object",
+          "required": [
+            "stop_hook_active",
+            "agent_id",
+            "agent_type",
+            "agent_transcript_path"
+          ],
+          "properties": {
+            "stop_hook_active": {
+              "type": "boolean",
+              "description": "true when Claude Code is already continuing as a result of a stop hook."
+            },
+            "agent_id": {
+              "type": "string",
+              "description": "Unique identifier for the subagent."
+            },
+            "agent_type": {
+              "type": "string",
+              "description": "Agent name used for matcher filtering."
+            },
+            "agent_transcript_path": {
+              "type": "string",
+              "description": "Path to the subagent's own transcript stored in a nested subagents/ folder."
+            },
+            "last_assistant_message": {
+              "type": "string",
+              "description": "Text content of the subagent's final response."
+            },
+            "background_tasks": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/BackgroundTask"
+              },
+              "description": "In-flight background tasks scoped to the parent session.",
+              "x-version-gated": "2.1.145"
+            },
+            "session_crons": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/SessionCron"
+              },
+              "description": "Session-scoped scheduled wakeups scoped to the parent session.",
+              "x-version-gated": "2.1.145"
+            }
+          }
+        }
+      ]
+    },
+    "TaskCreatedInput": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/CommonInput"
+        },
+        {
+          "type": "object",
+          "required": [
+            "task_id",
+            "task_subject"
+          ],
+          "properties": {
+            "task_id": {
+              "type": "string",
+              "description": "Identifier of the task being created."
+            },
+            "task_subject": {
+              "type": "string",
+              "description": "Title of the task."
+            },
+            "task_description": {
+              "type": "string",
+              "description": "Detailed description of the task."
+            },
+            "teammate_name": {
+              "type": "string",
+              "description": "Name of the teammate creating the task."
+            },
+            "team_name": {
+              "type": "string",
+              "description": "Name of the team."
+            }
+          }
+        }
+      ]
+    },
+    "TaskCompletedInput": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/CommonInput"
+        },
+        {
+          "type": "object",
+          "required": [
+            "task_id",
+            "task_subject"
+          ],
+          "properties": {
+            "task_id": {
+              "type": "string",
+              "description": "Identifier of the task being completed."
+            },
+            "task_subject": {
+              "type": "string",
+              "description": "Title of the task."
+            },
+            "task_description": {
+              "type": "string",
+              "description": "Detailed description of the task."
+            },
+            "teammate_name": {
+              "type": "string",
+              "description": "Name of the teammate completing the task."
+            },
+            "team_name": {
+              "type": "string",
+              "description": "Name of the team."
+            }
+          }
+        }
+      ]
+    },
+    "StopInput": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/CommonInput"
+        },
+        {
+          "type": "object",
+          "required": [
+            "stop_hook_active"
+          ],
+          "properties": {
+            "stop_hook_active": {
+              "type": "boolean",
+              "description": "true when Claude Code is already continuing as a result of a stop hook. Claude Code overrides the hook and ends the turn after 8 consecutive blocks."
+            },
+            "last_assistant_message": {
+              "type": "string",
+              "description": "Text content of Claude's final response."
+            },
+            "background_tasks": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/BackgroundTask"
+              },
+              "description": "In-flight background tasks.",
+              "x-version-gated": "2.1.145"
+            },
+            "session_crons": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/SessionCron"
+              },
+              "description": "Session-scoped scheduled wakeups.",
+              "x-version-gated": "2.1.145"
+            }
+          }
+        }
+      ]
+    },
+    "StopFailureInput": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/CommonInput"
+        },
+        {
+          "type": "object",
+          "required": [
+            "error"
+          ],
+          "properties": {
+            "error": {
+              "type": "string",
+              "enum": [
+                "rate_limit",
+                "overloaded",
+                "authentication_failed",
+                "oauth_org_not_allowed",
+                "billing_error",
+                "invalid_request",
+                "model_not_found",
+                "server_error",
+                "max_output_tokens",
+                "unknown"
+              ],
+              "description": "Error type."
+            },
+            "error_details": {
+              "type": "string",
+              "description": "Additional details about the error, when available."
+            },
+            "last_assistant_message": {
+              "type": "string",
+              "description": "The rendered error text shown in the conversation."
+            }
+          }
+        }
+      ]
+    },
+    "TeammateIdleInput": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/CommonInput"
+        },
+        {
+          "type": "object",
+          "required": [
+            "teammate_name",
+            "team_name"
+          ],
+          "properties": {
+            "teammate_name": {
+              "type": "string",
+              "description": "Name of the teammate that is about to go idle."
+            },
+            "team_name": {
+              "type": "string",
+              "description": "Name of the team."
+            }
+          }
+        }
+      ]
+    },
+    "ConfigChangeInput": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/CommonInput"
+        },
+        {
+          "type": "object",
+          "required": [
+            "source"
+          ],
+          "properties": {
+            "source": {
+              "type": "string",
+              "enum": [
+                "user_settings",
+                "project_settings",
+                "local_settings",
+                "policy_settings",
+                "skills"
+              ],
+              "description": "Which configuration type changed."
+            },
+            "file_path": {
+              "type": "string",
+              "description": "Path to the specific file that was modified."
+            }
+          }
+        }
+      ]
+    },
+    "CwdChangedInput": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/CommonInput"
+        },
+        {
+          "type": "object",
+          "required": [
+            "old_cwd",
+            "new_cwd"
+          ],
+          "properties": {
+            "old_cwd": {
+              "type": "string",
+              "description": "Previous working directory."
+            },
+            "new_cwd": {
+              "type": "string",
+              "description": "New working directory."
+            }
+          }
+        }
+      ]
+    },
+    "FileChangedInput": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/CommonInput"
+        },
+        {
+          "type": "object",
+          "required": [
+            "file_path",
+            "event"
+          ],
+          "properties": {
+            "file_path": {
+              "type": "string",
+              "description": "Absolute path to the file that changed."
+            },
+            "event": {
+              "type": "string",
+              "enum": [
+                "change",
+                "add",
+                "unlink"
+              ],
+              "description": "What happened to the file."
+            }
+          }
+        }
+      ]
+    },
+    "WorktreeCreateInput": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/CommonInput"
+        },
+        {
+          "type": "object",
+          "required": [
+            "name"
+          ],
+          "properties": {
+            "name": {
+              "type": "string",
+              "description": "Slug identifier for the new worktree, either user-specified or auto-generated."
+            }
+          }
+        }
+      ]
+    },
+    "WorktreeRemoveInput": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/CommonInput"
+        },
+        {
+          "type": "object",
+          "required": [
+            "worktree_path"
+          ],
+          "properties": {
+            "worktree_path": {
+              "type": "string",
+              "description": "Absolute path to the worktree being removed."
+            }
+          }
+        }
+      ]
+    },
+    "PreCompactInput": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/CommonInput"
+        },
+        {
+          "type": "object",
+          "required": [
+            "trigger"
+          ],
+          "properties": {
+            "trigger": {
+              "type": "string",
+              "enum": [
+                "manual",
+                "auto"
+              ],
+              "description": "Whether compaction was triggered manually (/compact) or automatically."
+            },
+            "custom_instructions": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "description": "For manual: what the user passed into /compact, or null when none was passed. For auto: empty string or null."
+            }
+          }
+        }
+      ]
+    },
+    "PostCompactInput": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/CommonInput"
+        },
+        {
+          "type": "object",
+          "required": [
+            "trigger",
+            "compact_summary"
+          ],
+          "properties": {
+            "trigger": {
+              "type": "string",
+              "enum": [
+                "manual",
+                "auto"
+              ],
+              "description": "Whether compaction was manual or automatic."
+            },
+            "compact_summary": {
+              "type": "string",
+              "description": "The conversation summary generated by the compact operation."
+            }
+          }
+        }
+      ]
+    },
+    "SessionEndInput": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/CommonInput"
+        },
+        {
+          "type": "object",
+          "required": [
+            "reason"
+          ],
+          "properties": {
+            "reason": {
+              "type": "string",
+              "enum": [
+                "clear",
+                "resume",
+                "logout",
+                "prompt_input_exit",
+                "bypass_permissions_disabled",
+                "other"
+              ],
+              "description": "Why the session ended."
+            }
+          }
+        }
+      ]
+    },
+    "ElicitationInput": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/CommonInput"
+        },
+        {
+          "type": "object",
+          "required": [
+            "mcp_server_name",
+            "message"
+          ],
+          "properties": {
+            "mcp_server_name": {
+              "type": "string",
+              "description": "Name of the MCP server requesting input."
+            },
+            "message": {
+              "type": "string",
+              "description": "The prompt message from the MCP server."
+            },
+            "mode": {
+              "type": "string",
+              "enum": [
+                "form",
+                "url"
+              ],
+              "description": "form for form-based elicitation, url for browser-based authentication."
+            },
+            "url": {
+              "type": "string",
+              "description": "Authentication URL. Present for url-mode elicitation."
+            },
+            "elicitation_id": {
+              "type": "string",
+              "description": "Unique identifier for this elicitation request."
+            },
+            "requested_schema": {
+              "$ref": "#/$defs/OpenObject",
+              "description": "JSON Schema object describing the form fields. Present for form-mode elicitation."
+            }
+          }
+        }
+      ]
+    },
+    "ElicitationResultInput": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/CommonInput"
+        },
+        {
+          "type": "object",
+          "required": [
+            "mcp_server_name",
+            "action"
+          ],
+          "properties": {
+            "mcp_server_name": {
+              "type": "string",
+              "description": "Name of the MCP server."
+            },
+            "action": {
+              "type": "string",
+              "enum": [
+                "accept",
+                "decline",
+                "cancel"
+              ],
+              "description": "The user's chosen action."
+            },
+            "mode": {
+              "type": "string",
+              "enum": [
+                "form",
+                "url"
+              ],
+              "description": "Elicitation mode."
+            },
+            "elicitation_id": {
+              "type": "string",
+              "description": "Unique identifier for this elicitation."
+            },
+            "content": {
+              "$ref": "#/$defs/OpenObject",
+              "description": "Form field values submitted by the user. Present when action is accept."
+            }
+          }
+        }
+      ]
+    },
+    "SessionStartOutput": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/CommonOutput"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "hookSpecificOutput": {
+              "type": "object",
+              "required": [
+                "hookEventName"
+              ],
+              "properties": {
+                "hookEventName": {
+                  "type": "string",
+                  "const": "SessionStart"
+                },
+                "additionalContext": {
+                  "type": "string",
+                  "description": "String added to Claude's context at the start of the conversation."
+                },
+                "initialUserMessage": {
+                  "type": "string",
+                  "description": "String used as the first user message of the session. Applies in non-interactive mode (-p)."
+                },
+                "sessionTitle": {
+                  "type": "string",
+                  "description": "Sets the session title. Applies only when source is startup or resume."
+                },
+                "watchPaths": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  },
+                  "description": "Array of absolute paths to watch for FileChanged events during this session."
+                },
+                "reloadSkills": {
+                  "type": "boolean",
+                  "description": "When true, Claude Code re-scans the skill and command directories after SessionStart hooks complete."
+                }
+              }
+            }
+          }
+        }
+      ],
+      "x-blocking": false,
+      "x-decision-pattern": "context-only"
+    },
+    "SetupOutput": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/CommonOutput"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "hookSpecificOutput": {
+              "type": "object",
+              "required": [
+                "hookEventName"
+              ],
+              "properties": {
+                "hookEventName": {
+                  "type": "string",
+                  "const": "Setup"
+                },
+                "additionalContext": {
+                  "type": "string",
+                  "description": "String added to Claude's context."
+                }
+              }
+            }
+          }
+        }
+      ],
+      "x-blocking": false,
+      "x-decision-pattern": "context-only"
+    },
+    "InstructionsLoadedOutput": {
+      "$ref": "#/$defs/CommonOutput",
+      "x-blocking": false,
+      "x-decision-pattern": "none"
+    },
+    "UserPromptSubmitOutput": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/CommonOutput"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "decision": {
+              "type": "string",
+              "const": "block",
+              "description": "block prevents the prompt from being processed. Omit to allow."
+            },
+            "reason": {
+              "type": "string",
+              "description": "Shown to the user when decision is block."
+            },
+            "suppressOriginalPrompt": {
+              "type": "boolean",
+              "description": "If true when decision is block, omits the original prompt text from the block message."
+            },
+            "hookSpecificOutput": {
+              "type": "object",
+              "required": [
+                "hookEventName"
+              ],
+              "properties": {
+                "hookEventName": {
+                  "type": "string",
+                  "const": "UserPromptSubmit"
+                },
+                "additionalContext": {
+                  "type": "string",
+                  "description": "String added to Claude's context alongside the submitted prompt."
+                },
+                "sessionTitle": {
+                  "type": "string",
+                  "description": "Sets the session title based on prompt content."
+                }
+              }
+            }
+          }
+        }
+      ],
+      "x-blocking": true,
+      "x-decision-pattern": "top-level-decision"
+    },
+    "UserPromptExpansionOutput": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/CommonOutput"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "decision": {
+              "type": "string",
+              "const": "block",
+              "description": "block prevents the slash command from expanding. Omit to allow."
+            },
+            "reason": {
+              "type": "string",
+              "description": "Shown to the user when decision is block."
+            },
+            "hookSpecificOutput": {
+              "type": "object",
+              "required": [
+                "hookEventName"
+              ],
+              "properties": {
+                "hookEventName": {
+                  "type": "string",
+                  "const": "UserPromptExpansion"
+                },
+                "additionalContext": {
+                  "type": "string",
+                  "description": "String added to Claude's context alongside the expanded prompt."
+                }
+              }
+            }
+          }
+        }
+      ],
+      "x-blocking": true,
+      "x-decision-pattern": "top-level-decision"
+    },
+    "MessageDisplayOutput": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/CommonOutput"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "hookSpecificOutput": {
+              "type": "object",
+              "required": [
+                "hookEventName"
+              ],
+              "properties": {
+                "hookEventName": {
+                  "type": "string",
+                  "const": "MessageDisplay"
+                },
+                "displayContent": {
+                  "type": "string",
+                  "description": "Text displayed in place of the delta. Omit to display the original."
+                }
+              }
+            }
+          }
+        }
+      ],
+      "x-blocking": false,
+      "x-decision-pattern": "display-content"
+    },
+    "PreToolUseOutput": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/CommonOutput"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "hookSpecificOutput": {
+              "type": "object",
+              "required": [
+                "hookEventName"
+              ],
+              "properties": {
+                "hookEventName": {
+                  "type": "string",
+                  "const": "PreToolUse"
+                },
+                "permissionDecision": {
+                  "type": "string",
+                  "enum": [
+                    "allow",
+                    "deny",
+                    "ask",
+                    "defer"
+                  ],
+                  "description": "allow skips the permission prompt. deny prevents the tool call. ask prompts the user. defer exits gracefully for later resumption.",
+                  "x-version-gated-defer": "2.1.89"
+                },
+                "permissionDecisionReason": {
+                  "type": "string",
+                  "description": "For allow and ask: shown to the user. For deny: shown to Claude."
+                },
+                "updatedInput": {
+                  "$ref": "#/$defs/OpenObject",
+                  "description": "Modifies the tool's input parameters before execution. Replaces the entire input object."
+                },
+                "additionalContext": {
+                  "type": "string",
+                  "description": "String added to Claude's context alongside the tool result."
+                }
+              }
+            }
+          }
+        }
+      ],
+      "x-blocking": true,
+      "x-decision-pattern": "hookSpecificOutput-permissionDecision"
+    },
+    "PermissionRequestOutput": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/CommonOutput"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "hookSpecificOutput": {
+              "type": "object",
+              "required": [
+                "hookEventName"
+              ],
+              "properties": {
+                "hookEventName": {
+                  "type": "string",
+                  "const": "PermissionRequest"
+                },
+                "decision": {
+                  "type": "object",
+                  "required": [
+                    "behavior"
+                  ],
+                  "properties": {
+                    "behavior": {
+                      "type": "string",
+                      "enum": [
+                        "allow",
+                        "deny"
+                      ],
+                      "description": "allow grants the permission, deny denies it."
+                    },
+                    "updatedInput": {
+                      "$ref": "#/$defs/OpenObject",
+                      "description": "For allow only: modifies the tool's input parameters before execution."
+                    },
+                    "updatedPermissions": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/$defs/PermissionUpdateEntry"
+                      },
+                      "description": "For allow only: permission update entries to apply."
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "For deny only: tells Claude why the permission was denied."
+                    },
+                    "interrupt": {
+                      "type": "boolean",
+                      "description": "For deny only: if true, stops Claude."
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      ],
+      "x-blocking": true,
+      "x-decision-pattern": "hookSpecificOutput-decision-behavior"
+    },
+    "PostToolUseOutput": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/CommonOutput"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "decision": {
+              "type": "string",
+              "const": "block",
+              "description": "block adds the reason next to the tool result. Claude still sees the original output."
+            },
+            "reason": {
+              "type": "string",
+              "description": "Explanation shown to Claude when decision is block."
+            },
+            "hookSpecificOutput": {
+              "type": "object",
+              "required": [
+                "hookEventName"
+              ],
+              "properties": {
+                "hookEventName": {
+                  "type": "string",
+                  "const": "PostToolUse"
+                },
+                "additionalContext": {
+                  "type": "string",
+                  "description": "String added to Claude's context alongside the tool result."
+                },
+                "updatedToolOutput": {
+                  "$ref": "#/$defs/OpenObject",
+                  "description": "Replaces the tool's output with the provided value before it is sent to Claude. Must match the tool's output shape."
+                },
+                "updatedMCPToolOutput": {
+                  "description": "Replaces the output for MCP tools only. Prefer updatedToolOutput."
+                }
+              }
+            }
+          }
+        }
+      ],
+      "x-blocking": false,
+      "x-decision-pattern": "top-level-decision"
+    },
+    "PostToolUseFailureOutput": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/CommonOutput"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "decision": {
+              "type": "string",
+              "const": "block",
+              "description": "block value per the decision control summary table."
+            },
+            "reason": {
+              "type": "string"
+            },
+            "hookSpecificOutput": {
+              "type": "object",
+              "required": [
+                "hookEventName"
+              ],
+              "properties": {
+                "hookEventName": {
+                  "type": "string",
+                  "const": "PostToolUseFailure"
+                },
+                "additionalContext": {
+                  "type": "string",
+                  "description": "String added to Claude's context alongside the error."
+                }
+              }
+            }
+          }
+        }
+      ],
+      "x-blocking": false,
+      "x-decision-pattern": "top-level-decision"
+    },
+    "PostToolBatchOutput": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/CommonOutput"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "decision": {
+              "type": "string",
+              "const": "block",
+              "description": "block stops the agentic loop before the next model call."
+            },
+            "reason": {
+              "type": "string"
+            },
+            "hookSpecificOutput": {
+              "type": "object",
+              "required": [
+                "hookEventName"
+              ],
+              "properties": {
+                "hookEventName": {
+                  "type": "string",
+                  "const": "PostToolBatch"
+                },
+                "additionalContext": {
+                  "type": "string",
+                  "description": "Context string injected once before the next model call."
+                }
+              }
+            }
+          }
+        }
+      ],
+      "x-blocking": true,
+      "x-decision-pattern": "top-level-decision"
+    },
+    "PermissionDeniedOutput": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/CommonOutput"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "hookSpecificOutput": {
+              "type": "object",
+              "required": [
+                "hookEventName"
+              ],
+              "properties": {
+                "hookEventName": {
+                  "type": "string",
+                  "const": "PermissionDenied"
+                },
+                "retry": {
+                  "type": "boolean",
+                  "description": "When true, Claude Code tells the model it may retry the denied tool call."
+                }
+              }
+            }
+          }
+        }
+      ],
+      "x-blocking": false,
+      "x-decision-pattern": "hookSpecificOutput-retry"
+    },
+    "NotificationOutput": {
+      "$ref": "#/$defs/CommonOutput",
+      "x-blocking": false,
+      "x-decision-pattern": "none"
+    },
+    "SubagentStartOutput": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/CommonOutput"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "hookSpecificOutput": {
+              "type": "object",
+              "required": [
+                "hookEventName"
+              ],
+              "properties": {
+                "hookEventName": {
+                  "type": "string",
+                  "const": "SubagentStart"
+                },
+                "additionalContext": {
+                  "type": "string",
+                  "description": "String added to the subagent's context at the start of its conversation."
+                }
+              }
+            }
+          }
+        }
+      ],
+      "x-blocking": false,
+      "x-decision-pattern": "context-only"
+    },
+    "SubagentStopOutput": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/CommonOutput"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "decision": {
+              "type": "string",
+              "const": "block",
+              "description": "block keeps the subagent running and delivers reason to the subagent as its next instruction."
+            },
+            "reason": {
+              "type": "string",
+              "description": "Required when decision is block."
+            },
+            "hookSpecificOutput": {
+              "type": "object",
+              "required": [
+                "hookEventName"
+              ],
+              "properties": {
+                "hookEventName": {
+                  "type": "string",
+                  "const": "SubagentStop"
+                },
+                "additionalContext": {
+                  "type": "string",
+                  "description": "Non-error feedback for the subagent. Conversation continues without a hook error notification."
+                }
+              }
+            }
+          }
+        }
+      ],
+      "x-blocking": true,
+      "x-decision-pattern": "top-level-decision"
+    },
+    "TaskCreatedOutput": {
+      "$ref": "#/$defs/CommonOutput",
+      "x-blocking": true,
+      "x-decision-pattern": "exit-code-or-continue"
+    },
+    "TaskCompletedOutput": {
+      "$ref": "#/$defs/CommonOutput",
+      "x-blocking": true,
+      "x-decision-pattern": "exit-code-or-continue"
+    },
+    "StopOutput": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/CommonOutput"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "decision": {
+              "type": "string",
+              "const": "block",
+              "description": "block prevents Claude from stopping."
+            },
+            "reason": {
+              "type": "string",
+              "description": "Required when decision is block. Tells Claude why it should continue."
+            },
+            "hookSpecificOutput": {
+              "type": "object",
+              "required": [
+                "hookEventName"
+              ],
+              "properties": {
+                "hookEventName": {
+                  "type": "string",
+                  "const": "Stop"
+                },
+                "additionalContext": {
+                  "type": "string",
+                  "description": "Non-error feedback for Claude. Conversation continues, transcript labels it as Stop hook feedback."
+                }
+              }
+            }
+          }
+        }
+      ],
+      "x-blocking": true,
+      "x-decision-pattern": "top-level-decision"
+    },
+    "StopFailureOutput": {
+      "$ref": "#/$defs/CommonOutput",
+      "x-blocking": false,
+      "x-decision-pattern": "none"
+    },
+    "TeammateIdleOutput": {
+      "$ref": "#/$defs/CommonOutput",
+      "x-blocking": true,
+      "x-decision-pattern": "exit-code-or-continue"
+    },
+    "ConfigChangeOutput": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/CommonOutput"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "decision": {
+              "type": "string",
+              "const": "block",
+              "description": "block prevents the configuration change from being applied. Note: policy_settings changes cannot be blocked."
+            },
+            "reason": {
+              "type": "string",
+              "description": "Explanation shown to the user when decision is block."
+            }
+          }
+        }
+      ],
+      "x-blocking": true,
+      "x-decision-pattern": "top-level-decision"
+    },
+    "CwdChangedOutput": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/CommonOutput"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "hookSpecificOutput": {
+              "type": "object",
+              "required": [
+                "hookEventName"
+              ],
+              "properties": {
+                "hookEventName": {
+                  "type": "string",
+                  "const": "CwdChanged"
+                },
+                "watchPaths": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  },
+                  "description": "Array of absolute paths to register with the FileChanged watcher (replaces the current dynamic watch list). Behaviorally verified: a CwdChanged hook returning hookSpecificOutput.watchPaths fires FileChanged when one of those paths is modified."
+                }
+              }
+            }
+          }
+        }
+      ],
+      "x-blocking": false,
+      "x-decision-pattern": "context-only"
+    },
+    "FileChangedOutput": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/CommonOutput"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "hookSpecificOutput": {
+              "type": "object",
+              "required": [
+                "hookEventName"
+              ],
+              "properties": {
+                "hookEventName": {
+                  "type": "string",
+                  "const": "FileChanged"
+                },
+                "watchPaths": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  },
+                  "description": "Array of absolute paths to dynamically update the watch list. Behaviorally verified: a FileChanged hook returning hookSpecificOutput.watchPaths fires FileChanged when one of those newly-registered paths is modified."
+                }
+              }
+            }
+          }
+        }
+      ],
+      "x-blocking": false,
+      "x-decision-pattern": "context-only"
+    },
+    "WorktreeCreateOutput": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/CommonOutput"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "hookSpecificOutput": {
+              "type": "object",
+              "required": [
+                "hookEventName",
+                "worktreePath"
+              ],
+              "properties": {
+                "hookEventName": {
+                  "type": "string",
+                  "const": "WorktreeCreate"
+                },
+                "worktreePath": {
+                  "type": "string",
+                  "description": "Absolute path where the worktree should be created. Required \u2014 Claude Code fails the creation if the path is missing. run() prints this to stdout for command hooks; HTTP hooks return it in the JSON response."
+                }
+              }
+            }
+          }
+        }
+      ],
+      "x-blocking": true,
+      "x-decision-pattern": "worktree-path-return"
+    },
+    "WorktreeRemoveOutput": {
+      "$ref": "#/$defs/CommonOutput",
+      "x-blocking": false,
+      "x-decision-pattern": "none"
+    },
+    "PreCompactOutput": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/CommonOutput"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "decision": {
+              "type": "string",
+              "const": "block",
+              "description": "block prevents compaction. For manual /compact the stderr message is shown to the user."
+            },
+            "reason": {
+              "type": "string"
+            }
+          }
+        }
+      ],
+      "x-blocking": true,
+      "x-decision-pattern": "top-level-decision"
+    },
+    "PostCompactOutput": {
+      "$ref": "#/$defs/CommonOutput",
+      "x-blocking": false,
+      "x-decision-pattern": "none"
+    },
+    "SessionEndOutput": {
+      "$ref": "#/$defs/CommonOutput",
+      "x-blocking": false,
+      "x-decision-pattern": "none"
+    },
+    "ElicitationOutput": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/CommonOutput"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "hookSpecificOutput": {
+              "type": "object",
+              "required": [
+                "hookEventName",
+                "action"
+              ],
+              "properties": {
+                "hookEventName": {
+                  "type": "string",
+                  "const": "Elicitation"
+                },
+                "action": {
+                  "type": "string",
+                  "enum": [
+                    "accept",
+                    "decline",
+                    "cancel"
+                  ],
+                  "description": "Whether to accept, decline, or cancel the request."
+                },
+                "content": {
+                  "$ref": "#/$defs/OpenObject",
+                  "description": "Form field values to submit. Only used when action is accept."
+                }
+              }
+            }
+          }
+        }
+      ],
+      "x-blocking": true,
+      "x-decision-pattern": "hookSpecificOutput-action-content"
+    },
+    "ElicitationResultOutput": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/CommonOutput"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "hookSpecificOutput": {
+              "type": "object",
+              "required": [
+                "hookEventName",
+                "action"
+              ],
+              "properties": {
+                "hookEventName": {
+                  "type": "string",
+                  "const": "ElicitationResult"
+                },
+                "action": {
+                  "type": "string",
+                  "enum": [
+                    "accept",
+                    "decline",
+                    "cancel"
+                  ],
+                  "description": "Overrides the user's action."
+                },
+                "content": {
+                  "$ref": "#/$defs/OpenObject",
+                  "description": "Overrides form field values. Only meaningful when action is accept."
+                }
+              }
+            }
+          }
+        }
+      ],
+      "x-blocking": true,
+      "x-decision-pattern": "hookSpecificOutput-action-content"
+    }
+  }
+}

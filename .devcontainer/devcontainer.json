@@ -1,0 +1,80 @@
+{
+  "name": "cc-flyrig",
+  "build": {
+    "dockerfile": "Dockerfile",
+    "args": {
+      "TZ": "${localEnv:TZ:America/Los_Angeles}",
+      "CLAUDE_CODE_VERSION": "2.1.201",
+      "GIT_DELTA_VERSION": "0.18.2",
+      "ZSH_IN_DOCKER_VERSION": "1.2.0"
+    }
+  },
+  "features": {
+    "ghcr.io/devcontainers/features/python:1": {
+      "version": "3.12",
+      "installTools": false
+    }
+  },
+  "runArgs": [
+    "--cap-add=NET_ADMIN",
+    "--cap-add=NET_RAW"
+  ],
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "anthropic.claude-code",
+        "ms-python.python",
+        "charliermarsh.ruff",
+        "eamodio.gitlens"
+      ],
+      "settings": {
+        "editor.formatOnSave": true,
+        "[python]": {
+          "editor.defaultFormatter": "charliermarsh.ruff",
+          "editor.codeActionsOnSave": {
+            "source.fixAll": "explicit",
+            "source.organizeImports": "explicit"
+          }
+        },
+        "terminal.integrated.defaultProfile.linux": "zsh",
+        "terminal.integrated.profiles.linux": {
+          "bash": {
+            "path": "bash",
+            "icon": "terminal-bash"
+          },
+          "zsh": {
+            "path": "zsh"
+          }
+        }
+      }
+    }
+  },
+  "remoteUser": "node",
+  "mounts": [
+    "source=claude-code-bashhistory-${devcontainerId},target=/commandhistory,type=volume",
+    "source=claude-code-config-${devcontainerId},target=/home/node/.claude,type=volume",
+    // Bind-mounts your host ~/.claude into the container read-only so init-container.sh
+    // can seed the container's Claude config from it (settings.json, etc.).
+    "source=${localEnv:HOME}/.claude,target=/tmp/host-claude,type=bind,readonly=true,consistency=cached"
+    // GPG commit signing and a `/release` staging mount are personal additions some
+    // maintainers add to their own (gitignored-override) devcontainer.json — they are not
+    // part of this generic template. See init-user.sh.example's "GPG commit signing" section
+    // for how to wire up signing without a repo-tracked mount.
+  ],
+  "postCreateCommand": "bash .devcontainer/init-container.sh",
+  "containerEnv": {
+    "NODE_OPTIONS": "--max-old-space-size=4096",
+    "CLAUDE_CONFIG_DIR": "/home/node/.claude",
+    "POWERLEVEL9K_DISABLE_GITSTATUS": "true",
+    // Git identity — forwarded from host environment variables.
+    // Set GIT_USER_NAME and GIT_USER_EMAIL in your shell profile or .env, or
+    // hardcode them here if you prefer not to use host env vars.
+    "GIT_USER_NAME": "${localEnv:GIT_USER_NAME:}",
+    "GIT_USER_EMAIL": "${localEnv:GIT_USER_EMAIL:}",
+    "GH_TOKEN": "${localEnv:GH_TOKEN:}"
+  },
+  "workspaceMount": "source=${localWorkspaceFolder},target=/workspace,type=bind,consistency=delegated",
+  "workspaceFolder": "/workspace",
+  "postStartCommand": "sudo /usr/local/bin/init-firewall.sh",
+  "waitFor": "postStartCommand"
+}
