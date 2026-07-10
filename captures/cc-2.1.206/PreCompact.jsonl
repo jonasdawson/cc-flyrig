@@ -1,0 +1,2 @@
+{"custom_instructions": null, "cwd": "/tmp/flyrig-sandboxes/20260710T051512/compact", "hook_event_name": "PreCompact", "prompt_id": "5606044d-0e58-4b36-a557-5d2ef292f0b1", "session_id": "<SESSION_ID>", "transcript_path": "<TRANSCRIPT_PATH>", "trigger": "manual"}
+{"custom_instructions": null, "cwd": "/tmp/flyrig-sandboxes/20260710T051512/compact-post-manual", "hook_event_name": "PreCompact", "prompt_id": "66e7b033-76c3-48a7-b678-0e4ee4bd10dd", "session_id": "<SESSION_ID>", "transcript_path": "<TRANSCRIPT_PATH>", "trigger": "manual"}
