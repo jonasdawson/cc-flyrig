@@ -1,0 +1,1 @@
+{"cwd": "/tmp/flyrig-sandboxes/20260710T051512/task-lifecycle", "hook_event_name": "TaskCreated", "prompt_id": "01704c27-4553-49b9-96cb-2da352a8a5d2", "session_id": "<SESSION_ID>", "task_description": "Write the single word 'done' to result.txt in the working directory.", "task_id": "1", "task_subject": "write done file", "transcript_path": "<TRANSCRIPT_PATH>"}
