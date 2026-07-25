@@ -526,3 +526,21 @@ timeout_s = 180
 [scenario.environment_plugins]
 git_repo = true
 worktree = true
+
+# --- DirectoryAdded (new in CC 2.1.220) -----------------------------------------------------------
+
+# /add-dir registers a new working directory mid-session, firing after the sandbox permission
+# config has already been refreshed for it (no tool call involved). The target must be outside the
+# sandbox's own cwd tree -- CC rejects (silently, no hook fire) a path already accessible within the
+# current working directory ("extra-dir is already accessible within the current working
+# directory"), so /tmp (always present, always a sibling of the sandbox root) is used instead of a
+# sandbox-seeded subdir.
+[[scenario]]
+id = "directory-added"
+prompt = "/add-dir /tmp"
+[scenario.expect]
+events = ["DirectoryAdded"]
+method = "side-effect"
+[scenario.drive]
+complete_on = "DirectoryAdded"
+timeout_s = 60

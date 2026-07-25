@@ -23,7 +23,7 @@ from pathlib import Path
 from . import delta, drift_detector, locate
 from .keys import input_def_name
 from .reconcile import observe, propose
-from .roster import EVENTS
+from .roster import events_as_of
 from .seed import reseed
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
@@ -52,7 +52,7 @@ def _check_one_version(cc_version: str | None, *, captures: Path, schemas_dir: P
         schema = json.loads(locate.find("hooks", cc_version, schemas_dir).read_text())
         findings += drift_detector.check_captures(schema, captures, cc_version=cc_version) if has_payloads else []
         findings += drift_detector.check_documented_hooks(schema, captures, cc_version=cc_version)
-        findings += drift_detector.roster_agreement(EVENTS, schema.get("$defs", {}))
+        findings += drift_detector.roster_agreement(events_as_of(cc_version), schema.get("$defs", {}))
     if has_statusline_payloads:
         statusline_schema = json.loads(locate.find("statusline", cc_version, schemas_dir).read_text())
         findings += drift_detector.check_captures(

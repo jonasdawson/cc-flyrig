@@ -20,7 +20,7 @@ from pathlib import Path
 from jsonschema import Draft202012Validator
 
 from .keys import input_def_name, output_def_name
-from .roster import EVENTS
+from .roster import EVENTS, events_as_of
 from .walker import walk_props
 
 
@@ -136,16 +136,18 @@ def check_captures(
     return findings
 
 
-def check_documented_events(menu_events: Iterable[str], *, source: Path) -> list[Finding]:
+def check_documented_events(menu_events: Iterable[str], *, source: Path, cc_version: str | None = None) -> list[Finding]:
     """Compare the ``/hooks`` menu's event set against the IR roster (``roster.EVENTS``).
 
     Returns blocking ``cc-hooks-skill-drift`` findings for events documented by the binary but absent
     from the IR, and vice versa. Pure over the event-name list, so it serves both the capture-time
     warn/prompt (``_cmd_run``) and the CI gate (``_cmd_diff``). It draws no conclusion about *why* the
-    sets differ (no rename/removal inference).
+    sets differ (no rename/removal inference). ``cc_version``, when given, scopes the IR side to
+    ``roster.events_as_of(cc_version)`` so a historical menu isn't flagged as missing an event CC
+    hadn't introduced yet; omitted, it falls back to the full ``EVENTS`` roster.
     """
     menu = set(menu_events)
-    ir = set(EVENTS)
+    ir = set(events_as_of(cc_version)) if cc_version else set(EVENTS)
     findings = [
         Finding(source, e, 0, "cc-hooks-skill-drift", "documented by /hooks, absent from IR") for e in sorted(menu - ir)
     ]
@@ -216,7 +218,8 @@ def check_documented_hooks(schema: dict, captures_root: str | Path, *, cc_versio
             continue
         data = json.loads(path.read_text())
         events = data.get("events", [])
-        findings += check_documented_events([e["event"] for e in events], source=path)
+        menu_cc_version = data.get("cc_version") or cdir.name.removeprefix("cc-")
+        findings += check_documented_events([e["event"] for e in events], source=path, cc_version=menu_cc_version)
         findings += check_documented_fields(schema, events, source=path)
     return findings
 

@@ -235,7 +235,9 @@ class TestRunInputsFamilySplitSummary:
         manifest = _write_manifest(tmp_path, ["s1"])
         monkeypatch.setattr(f"{_MAIN_MODULE}.detect_cc_version", lambda claude_bin: "9.9.9")
         monkeypatch.setattr(f"{_MAIN_MODULE}.scan_hooks_menu", lambda claude_bin, sandbox_root: ([], ""))
-        monkeypatch.setattr(f"{_MAIN_MODULE}.drift_detector.check_documented_events", lambda events, source: [])
+        monkeypatch.setattr(
+            f"{_MAIN_MODULE}.drift_detector.check_documented_events", lambda events, source, cc_version=None: []
+        )
         monkeypatch.setattr(f"{_MAIN_MODULE}.build_registry", lambda root: {})
         monkeypatch.setattr(f"{_MAIN_MODULE}.parse_manifest", lambda text, registry: argparse.Namespace(scenarios=()))
         monkeypatch.setattr(

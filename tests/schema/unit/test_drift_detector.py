@@ -8,7 +8,7 @@ import json
 from pathlib import Path
 
 from cc_flyrig.schema import drift_detector
-from cc_flyrig.schema.roster import EVENTS
+from cc_flyrig.schema.roster import EVENTS, events_as_of
 
 _VALID_PRE_TOOL_USE = {
     "session_id": "abc123",
@@ -107,7 +107,7 @@ class TestCcVersionScoping:
 
     def test_check_documented_hooks__cc_version_given__does_not_report_other_versions_drift(self, schema, tmp_path):
         # cc-1.0.0 has a clean roster; cc-2.0.0's menu is drifted. Diffing 1.0.0 must not see 2.0.0's findings.
-        clean_events = [{"event": e, "input_fields": [], "output_fields": []} for e in EVENTS]
+        clean_events = [{"event": e, "input_fields": [], "output_fields": []} for e in events_as_of("1.0.0")]
         root = self._write_menu_for(tmp_path, "1.0.0", clean_events)
         self._write_menu_for(
             root, "2.0.0", [{"event": e, "input_fields": [], "output_fields": []} for e in [*EVENTS, "Bogus"]]

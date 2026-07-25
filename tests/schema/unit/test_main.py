@@ -30,9 +30,11 @@ class TestCmdCheck:
         return tmp_path
 
     def test_cmd_check__menu_matches_ir__exits_zero(self, tmp_path):
-        from cc_flyrig.schema.roster import EVENTS
+        from cc_flyrig.schema.roster import events_as_of
 
-        captures = self._write_menu(tmp_path, [{"event": e, "input_fields": [], "output_fields": []} for e in EVENTS])
+        captures = self._write_menu(
+            tmp_path, [{"event": e, "input_fields": [], "output_fields": []} for e in events_as_of("2.1.168")]
+        )
         assert main(["check", "--cc-version", "2.1.168", "--captures", str(captures)]) == 0
 
     def test_cmd_check__menu_extra_event__exits_one(self, tmp_path):
@@ -43,10 +45,11 @@ class TestCmdCheck:
         assert main(["check", "--cc-version", "2.1.168", "--captures", str(captures)]) == 1
 
     def test_cmd_check__advisory_field_only__exits_zero(self, tmp_path, capsys):
-        from cc_flyrig.schema.roster import EVENTS
+        from cc_flyrig.schema.roster import events_as_of
 
-        events = [{"event": e, "input_fields": [], "output_fields": []} for e in EVENTS]
-        events[0] = {"event": EVENTS[0], "input_fields": ["totally_new_field"], "output_fields": []}
+        events_2_1_168 = sorted(events_as_of("2.1.168"))
+        events = [{"event": e, "input_fields": [], "output_fields": []} for e in events_2_1_168]
+        events[0] = {"event": events_2_1_168[0], "input_fields": ["totally_new_field"], "output_fields": []}
         captures = self._write_menu(tmp_path, events)
         assert main(["check", "--cc-version", "2.1.168", "--captures", str(captures)]) == 0
         assert "advisory" in capsys.readouterr().out

@@ -272,7 +272,9 @@ def _run_inputs(args, install: ClaudeInstall) -> int:
     cov_dir = Path(args.captures) / f"cc-{cc_version}"
     _write_menu_artifacts(events, raw, cov_dir, cc_version)
     print(f"scanned /hooks: {len(events)} events; wrote {cov_dir / 'hooks_menu.json'}")
-    findings = drift_detector.check_documented_events([e["event"] for e in events], source=cov_dir / "hooks_menu.json")
+    findings = drift_detector.check_documented_events(
+        [e["event"] for e in events], source=cov_dir / "hooks_menu.json", cc_version=cc_version
+    )
     if findings and not _confirm_menu_change(findings, args):
         print("aborted: /hooks menu differs from the IR; reconcile scenarios before capturing", file=sys.stderr)
         return 1
