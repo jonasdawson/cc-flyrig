@@ -1,0 +1,43 @@
+{
+  "captured_at": "2026-07-25T14:57:10.696079+00:00",
+  "cc_version": "2.1.220",
+  "events": {
+    "StatusLine": 155,
+    "SubagentStatusLine": 3
+  },
+  "run_ids": [
+    "20260725T064914:baseline",
+    "20260725T064914:bash-tool",
+    "20260725T064914:compact",
+    "20260725T064914:compact-post-auto",
+    "20260725T064914:compact-post-manual",
+    "20260725T064914:config-change",
+    "20260725T064914:cwd-changed",
+    "20260725T064914:directory-added",
+    "20260725T064914:edit-tool",
+    "20260725T064914:elicitation",
+    "20260725T064914:file-changed",
+    "20260725T064914:glob-tool",
+    "20260725T064914:grep-tool",
+    "20260725T064914:instructions-loaded",
+    "20260725T064914:message-display",
+    "20260725T064914:permission-denied",
+    "20260725T064914:permission-request",
+    "20260725T064914:post-tool-batch",
+    "20260725T064914:read-tool",
+    "20260725T064914:stop-failure",
+    "20260725T064914:subagent",
+    "20260725T064914:task-lifecycle",
+    "20260725T064914:teammate-idle",
+    "20260725T064914:tool-failure",
+    "20260725T064914:user-prompt-expansion",
+    "20260725T064914:webfetch-tool",
+    "20260725T064914:websearch-tool",
+    "20260725T064914:worktree-lifecycle",
+    "20260725T064914:worktree-remove",
+    "20260725T064914:write-tool",
+    "20260725T075540:directory-added"
+  ],
+  "surface": "statusline",
+  "total_payloads": 158
+}
