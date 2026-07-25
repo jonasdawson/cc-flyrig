@@ -184,6 +184,50 @@ class _FakeTmux(Tmux):
         self._screen = "dead"
 
 
+class _LaggyFakeTmux(_FakeTmux):
+    """Models the CC 2.1.220 /hooks list: only a ``viewport`` of rows renders at once, a Down
+    re-renders only after ``lag`` subsequent pane captures, and a Down sent while the previous one
+    is still pending is dropped — the input loss that broke the fixed-sleep scanner."""
+
+    def __init__(self, rows: list[tuple[int, str, str]], bodies: dict[int, str], lag: int, viewport: int) -> None:
+        super().__init__(rows, bodies)
+        self._lag = lag
+        self._viewport = viewport
+        self._pending_down = 0  # captures remaining until the queued Down lands
+
+    def send_key(self, name, key) -> None:
+        if key == "Down" and self._screen == "list":
+            if self._pending_down:
+                return  # dropped: the previous press hasn't re-rendered yet
+            self._pending_down = self._lag
+            return
+        super().send_key(name, key)
+
+    def capture_pane(self, name) -> str:
+        if self._pending_down and self._screen == "list":
+            self._pending_down -= 1
+            if self._pending_down == 0:
+                super().send_key(name, "Down")  # the queued press finally lands
+        if self._screen == "list":
+            start = min(max(self._focus - 1, 1), len(self._rows) - self._viewport + 1)
+            return _list_pane(self._focus, self._rows[start - 1 : start - 1 + self._viewport])
+        return super().capture_pane(name)
+
+
+def _fake_time():
+    """A sleep/clock pair over one fake timeline, so bounded waits progress and time out."""
+    state = {"t": 0.0}
+
+    def sleep(s: float) -> None:
+        state["t"] += s
+
+    def clock() -> float:
+        state["t"] += 0.01  # each clock read costs a beat, so even poll-only loops advance
+        return state["t"]
+
+    return sleep, clock
+
+
 class TestScanHooksMenu:
     def test_scan_hooks_menu__three_entries__parses_in_order(self, tmp_path):
         rows = [
@@ -206,3 +250,32 @@ class TestScanHooksMenu:
         assert "Exit code 2 - show stderr to model immediately" in failure["exit_codes"]
         assert entries[2]["output_fields"]  # Elicitation has an output note with hookSpecificOutput
         assert "### Elicitation" in raw
+
+    def test_scan_hooks_menu__laggy_tui_dropping_rapid_keypresses__still_scrapes_every_entry(self, tmp_path):
+        rows = [
+            (1, "PreToolUse", "Before tool execution"),
+            (2, "PostToolUse", "After tool execution"),
+            (3, "PostToolUseFailure", "After tool execution fails"),
+            (4, "PermissionDenied", "When a permission is denied"),
+            (5, "Elicitation", "When an MCP server requests user input"),
+            (6, "SessionStart", "When a session starts"),
+        ]
+        bodies = {
+            1: _DETAIL_PRETOOLUSE,
+            2: _DETAIL_FAILURE,
+            3: _DETAIL_FAILURE,
+            4: _DETAIL_PERMISSION_DENIED,
+            5: _DETAIL_ELICITATION,
+            6: _DETAIL_PRETOOLUSE,
+        }
+        fake = _LaggyFakeTmux(rows, bodies, lag=3, viewport=3)
+        sleep, clock = _fake_time()
+
+        entries, raw = menu_scanner.scan_hooks_menu(
+            claude_bin="claude", sandbox_root=tmp_path, tmux=fake, sleep=sleep, clock=clock
+        )
+
+        assert [e["event"] for e in entries] == [name for _, name, _ in rows]
+        assert all(e["raw"] for e in entries)  # every entry got a real detail body, not just the first
+        assert "hookSpecificOutput" in entries[4]["output_note"]  # Elicitation's body landed at its own index
+        assert "### SessionStart" in raw

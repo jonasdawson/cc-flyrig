@@ -31,6 +31,8 @@ _ROW = re.compile(r"^\s*(?P<focus>[❯>])?\s*(?:[↑↓]\s*)?(?P<num>\d+)\.\s+(?
 # Footers that identify which screen the pane is showing.
 _LIST_FOOTER = "Esc to cancel"
 _DETAIL_FOOTER = "go back"
+_FOCUS_SETTLE_S = 1.5
+_FOCUS_POLL_S = 0.1
 
 # Lines that are menu chrome, not documentation, dropped before classifying a detail body.
 _BOILERPLATE = ("No hooks configured", "To add hooks")
@@ -67,6 +69,11 @@ def _focused_row(pane: str) -> dict | None:
         if row["focused"]:
             return row
     return None
+
+
+def _focus_num(pane: str) -> int | None:
+    focused = _focused_row(pane)
+    return focused["num"] if focused else None
 
 
 def _detail_body(pane: str) -> str:
@@ -139,34 +146,74 @@ def _open_menu(tmux: Tmux, session: str, sleep, clock) -> None:
     sleep(0.5)
     tmux.send_key(session, "Enter")
     _wait_for(lambda: _LIST_FOOTER in tmux.capture_pane(session), 10.0, sleep, clock, poll=0.3, required=False)
+    _wait_for(lambda: _focused_row(tmux.capture_pane(session)) is not None, 5.0, sleep, clock, poll=0.3, required=False)
 
 
-def _scrape_roster(tmux: Tmux, session: str, sleep, max_presses: int = 80) -> list[dict]:
-    """Phase A: Down-only, follow focus until it wraps, accumulating visible list rows by number."""
+def _press_down_settled(tmux: Tmux, session: str, current: int | None, sleep, clock) -> None:
+    """Press Down, then wait (bounded) for the focused row to move off ``current``.
+
+    A press whose re-render hasn't landed yet is indistinguishable from a dropped one; timing out
+    here means the caller re-reads the pane and decides — never that the focus definitely moved.
+    """
+    tmux.send_key(session, "Down")
+    _wait_for(
+        lambda: _focus_num(tmux.capture_pane(session)) != current,
+        _FOCUS_SETTLE_S,
+        sleep,
+        clock,
+        poll=_FOCUS_POLL_S,
+        required=False,
+    )
+
+
+def _scrape_roster(tmux: Tmux, session: str, sleep, clock, max_presses: int = 80) -> list[dict]:
+    """Phase A: Down-only, follow focus until it wraps, accumulating visible list rows by number.
+
+    A press only counts once the focused row number actually changes: a dropped keypress leaves the
+    pane showing the same focus as the last capture, which is exactly what a genuine wrap looks
+    like. Re-pressing until the focus moves keeps "same focus again" meaning "wrapped".
+    """
     rows: dict[int, dict] = {}
     seen_focus: list[int] = []
+    pane = tmux.capture_pane(session)
+    for r in _list_rows(pane):
+        rows[r["num"]] = r
+    current = _focus_num(pane)
+    if current is not None:
+        seen_focus.append(current)
     for _ in range(max_presses):
+        _press_down_settled(tmux, session, current, sleep, clock)
         pane = tmux.capture_pane(session)
         for r in _list_rows(pane):
             rows[r["num"]] = r
-        focused = _focused_row(pane)
-        if focused is not None:
-            if focused["num"] in seen_focus:
-                break
-            seen_focus.append(focused["num"])
-        tmux.send_key(session, "Down")
-        sleep(0.25)
+        num = _focus_num(pane)
+        if num == current:
+            continue  # press dropped by a slow re-render — retry rather than read it as a wrap
+        current = num
+        if num is not None:
+            if num in seen_focus:
+                break  # wrapped back to an already-seen row: the whole list has been walked
+            seen_focus.append(num)
     return [rows[k] for k in sorted(rows)]
 
 
+def _navigate_to(tmux: Tmux, session: str, target: int, sleep, clock, max_presses: int) -> bool:
+    """Walk focus down to row ``target``, re-pressing dropped keys; wrap-around recovers overshoot."""
+    for _ in range(max_presses):
+        current = _focus_num(tmux.capture_pane(session))
+        if current == target:
+            return True
+        _press_down_settled(tmux, session, current, sleep, clock)
+    return _focus_num(tmux.capture_pane(session)) == target
+
+
 def _capture_details(tmux: Tmux, session: str, count: int, sleep, clock) -> dict[int, str]:
-    """Phase B: reach entry k by stepping Down k-1 from the top; return {num: detail_body}."""
+    """Phase B: walk focus down to entry k from the top; return {num: detail_body}."""
     bodies: dict[int, str] = {}
     for k in range(1, count + 1):
         _wait_for(lambda: _LIST_FOOTER in tmux.capture_pane(session), 5.0, sleep, clock, poll=0.3, required=False)
-        for _ in range(k - 1):
-            tmux.send_key(session, "Down")
-            sleep(0.15)
+        if not _navigate_to(tmux, session, k, sleep, clock, max_presses=2 * count + 8):
+            continue  # never reached entry k — leave its body missing rather than capture a wrong one
         tmux.send_key(session, "Enter")
         _wait_for(lambda: _DETAIL_FOOTER in tmux.capture_pane(session), 5.0, sleep, clock, poll=0.3, required=False)
         bodies[k] = _detail_body(tmux.capture_pane(session))
@@ -197,7 +244,7 @@ def scan_hooks_menu(
         tmux.new_session(session, cwd=str(sandbox), command=[claude_bin, "--setting-sources", "project"])
         _wait_ready(tmux, session, 30.0, sleep, clock, poll=1.0)
         _open_menu(tmux, session, sleep, clock)
-        roster = _scrape_roster(tmux, session, sleep)
+        roster = _scrape_roster(tmux, session, sleep, clock)
         # Phase A leaves focus mid-list; re-open so Phase B starts at the top.
         tmux.send_key(session, "Escape")
         sleep(0.5)
