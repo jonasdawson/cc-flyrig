@@ -18,6 +18,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
   rsync \
   gnupg2 \
   pinentry-curses \
+  openssh-client \
   gh \
   iptables \
   ipset \

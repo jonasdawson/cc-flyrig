@@ -56,10 +56,11 @@
     // Bind-mounts your host ~/.claude into the container read-only so init-container.sh
     // can seed the container's Claude config from it (settings.json, etc.).
     "source=${localEnv:HOME}/.claude,target=/tmp/host-claude,type=bind,readonly=true,consistency=cached"
-    // GPG commit signing and a `/release` staging mount are personal additions some
-    // maintainers add to their own (gitignored-override) devcontainer.json — they are not
-    // part of this generic template. See init-user.sh.example's "GPG commit signing" section
-    // for how to wire up signing without a repo-tracked mount.
+    // Commit signing needs no mount when you sign with SSH: VS Code forwards your
+    // host ssh-agent into the container automatically, so the private key never
+    // leaves the agent. See init-user.sh.example's "SSH commit signing" section.
+    // A `/release` staging mount is a personal addition some maintainers add to their
+    // own (gitignored-override) devcontainer.json — not part of this generic template.
   ],
   "postCreateCommand": "bash .devcontainer/init-container.sh",
   "containerEnv": {
@@ -71,6 +72,9 @@
     // hardcode them here if you prefer not to use host env vars.
     "GIT_USER_NAME": "${localEnv:GIT_USER_NAME:}",
     "GIT_USER_EMAIL": "${localEnv:GIT_USER_EMAIL:}",
+    // Optional: public half of your SSH signing key, in git's literal form
+    // ("key::ssh-ed25519 AAAA..."). Public material only — see init-user.sh.example.
+    "GIT_SIGNING_KEY": "${localEnv:GIT_SIGNING_KEY:}",
     "GH_TOKEN": "${localEnv:GH_TOKEN:}"
   },
   "workspaceMount": "source=${localWorkspaceFolder},target=/workspace,type=bind,consistency=delegated",
