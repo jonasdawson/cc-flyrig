@@ -15,6 +15,7 @@ from cc_flyrig.capture.__main__ import (
     main,
     partition_scenarios,
 )
+from cc_flyrig.capture.orchestrator.menu_scanner import MenuScanError
 from cc_flyrig.capture.orchestrator.scenario_runner import ClaudeInstall, ScenarioResult
 from cc_flyrig.schema.drift_detector import Finding
 
@@ -22,6 +23,15 @@ from cc_flyrig.schema.drift_detector import Finding
 # These tests verify that each CLI command routes, imports, and exits correctly.
 
 _MAIN_MODULE = "cc_flyrig.capture.__main__"
+
+
+@pytest.fixture(autouse=True)
+def _isolated_user_settings(tmp_path, monkeypatch):
+    """Keep the settings guard off the maintainer's real ~/.claude/settings.json in every test."""
+    config_dir = tmp_path / "claude-config"
+    config_dir.mkdir()
+    monkeypatch.setenv("CLAUDE_CONFIG_DIR", str(config_dir))
+    return config_dir
 
 
 def _write_manifest(tmp_path: Path, ids: list[str]) -> Path:
@@ -230,7 +240,7 @@ class TestRunInputsFamilySplitSummary:
     def test_run_inputs__mixed_hooks_and_statusline_results__final_summary_splits_by_family(
         self, tmp_path, monkeypatch, capsys
     ):
-        """ADR 0012 §5: the input battery's final summary reports hooks and statusline observed
+        """The input battery's final summary reports hooks and statusline observed
         events separately, rather than lumping both families into one ``observed events:`` line."""
         manifest = _write_manifest(tmp_path, ["s1"])
         monkeypatch.setattr(f"{_MAIN_MODULE}.detect_cc_version", lambda claude_bin: "9.9.9")
@@ -265,6 +275,85 @@ class TestRunInputsFamilySplitSummary:
         out = capsys.readouterr().out
         assert "hooks observed: PreToolUse, Stop" in out
         assert "statusline observed: StatusLine, SubagentStatusLine" in out
+
+
+class TestRunInputsMenuScanError:
+    def test_run_inputs__menu_scan_error__returns_1_writes_pane_dump_no_menu_json(self, tmp_path, monkeypatch, capsys):
+        """A broken /hooks scan aborts loudly, saves the last screen, and never writes hooks_menu.json."""
+        monkeypatch.setattr(f"{_MAIN_MODULE}.detect_cc_version", lambda claude_bin: "9.9.9")
+
+        def broken_scan(claude_bin, sandbox_root):
+            raise MenuScanError("parsed 0 entries from /hooks", pane=f"  Hooks\n  {Path.home()}/x\n  ? for shortcuts")
+
+        monkeypatch.setattr(f"{_MAIN_MODULE}.scan_hooks_menu", broken_scan)
+        ran = []
+        monkeypatch.setattr(f"{_MAIN_MODULE}.run_scenarios", lambda *a, **k: ran.append(1) or [])
+        captures = tmp_path / "captures"
+
+        rc = main(["inputs", "--captures", str(captures), "--sandbox", str(tmp_path / "sandbox")])
+
+        assert rc == 1
+        cov_dir = captures / "cc-9.9.9"
+        dump = (cov_dir / "hooks_menu.txt").read_text()
+        assert "? for shortcuts" in dump
+        assert str(Path.home()) not in dump  # scrubbed like the normal artifact
+        assert not (cov_dir / "hooks_menu.json").exists()
+        assert not ran  # no scenarios driven
+        err = capsys.readouterr().err
+        assert "could not scan the /hooks menu (parsed 0 entries from /hooks)" in err
+        assert str(cov_dir / "hooks_menu.txt") in err
+
+
+class TestUserSettingsGuard:
+    def test_cmd_inputs__run_modifies_user_settings__restored(self, monkeypatch, _isolated_user_settings, capsys):
+        settings = _isolated_user_settings / "settings.json"
+        original = b'{\n  "theme": "dark"\n}\n'
+        settings.write_bytes(original)
+        monkeypatch.setattr(f"{_MAIN_MODULE}._resolve_install", lambda args: ClaudeInstall())
+
+        def run_inputs_that_persists_model(args, install):
+            settings.write_text('{"theme": "dark", "model": "haiku"}')  # what /model <name> does
+            return 0
+
+        monkeypatch.setattr(f"{_MAIN_MODULE}._run_inputs", run_inputs_that_persists_model)
+
+        assert main(["inputs"]) == 0
+        assert settings.read_bytes() == original
+        assert "restored" in capsys.readouterr().err
+
+    def test_cmd_outputs__run_modifies_user_settings__restored(self, monkeypatch, _isolated_user_settings):
+        settings = _isolated_user_settings / "settings.json"
+        settings.write_bytes(b"{}")
+        monkeypatch.setattr(f"{_MAIN_MODULE}._resolve_install", lambda args: ClaudeInstall())
+        monkeypatch.setattr(f"{_MAIN_MODULE}._run_outputs", lambda args, inst: settings.write_text("{1}") and 0)
+
+        main(["outputs"])
+        assert settings.read_bytes() == b"{}"
+
+    def test_default_run__both_batteries_modify__one_snapshot_restored_once(
+        self, monkeypatch, _isolated_user_settings, capsys
+    ):
+        settings = _isolated_user_settings / "settings.json"
+        settings.write_bytes(b"{}")
+        monkeypatch.setattr(f"{_MAIN_MODULE}._resolve_install", lambda args: ClaudeInstall())
+        seen = []
+
+        def run_inputs(args, inst):
+            settings.write_text('{"model": "haiku"}')
+            return 0
+
+        def run_outputs(args, inst):
+            seen.append(settings.read_text())  # not restored between the batteries: one shared snapshot
+            settings.write_text('{"model": "sonnet"}')
+            return 0
+
+        monkeypatch.setattr(f"{_MAIN_MODULE}._run_inputs", run_inputs)
+        monkeypatch.setattr(f"{_MAIN_MODULE}._run_outputs", run_outputs)
+
+        assert main([]) == 0
+        assert seen == ['{"model": "haiku"}']
+        assert settings.read_bytes() == b"{}"
+        assert capsys.readouterr().err.count("restored") == 1
 
 
 class TestCommandsRemoved:

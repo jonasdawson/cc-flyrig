@@ -376,7 +376,7 @@ class WorktreeInfo:
 
 @dataclass(slots=True)
 class StatusLineData:
-    """The whole statusLine contract — statusLine has no output schema (D3); inputs are authored entirely from capture."""
+    """The whole statusLine contract — statusLine has no output schema; inputs are authored entirely from capture."""
 
     cwd: str
     session_id: str

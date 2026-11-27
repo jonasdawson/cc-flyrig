@@ -34,6 +34,10 @@ class TestRealManifest:
         assert len(ids) == len(set(ids))  # ids unique
         assert "read-tool" in ids
 
+    def test_parse_manifest__committed_battery__pins_default_permission_mode(self):
+        """cc-2.1.332 starts mode-less sessions in auto mode, so the battery pins a default."""
+        assert parse(MANIFEST_PATH.read_text()).meta.default_permission_mode == "bypassPermissions"
+
     def test_parse_manifest__committed_battery__worktree_remove_expected(self):
         """WorktreeRemove (a tracked CC bug) is still expected by a scenario, so it surfaces as
         expected-but-missing in coverage rather than being silently dropped."""
@@ -131,6 +135,12 @@ class TestLaunch:
         text = '[[scenario]]\nid = "s"\nprompt = "go"\n[scenario.launch]\npermission_mode = "auto"\n'
         (scenario,) = parse(text).scenarios
         assert scenario.launch.permission_mode == "auto"
+
+    def test_parse_manifest__launch_bad_permission_mode__raises(self):
+        # A typo'd mode would otherwise silently launch CC's default mode.
+        text = '[[scenario]]\nid = "s"\nprompt = "go"\n[scenario.launch]\npermission_mode = "bypass"\n'
+        with pytest.raises(m.ManifestError, match="launch.permission_mode"):
+            parse(text)
 
 
 class TestSetupEnv:
@@ -379,6 +389,18 @@ class TestMeta:
     def test_parse_manifest__meta_not_table__raises(self):
         with pytest.raises(m.ManifestError):
             parse('meta = "notatable"\n[[scenario]]\nid = "s"\nprompt = "go"\n')
+
+    def test_parse_manifest__meta_default_permission_mode__parsed(self):
+        text = '[meta]\ndefault_permission_mode = "bypassPermissions"\n[[scenario]]\nid = "s"\nprompt = "go"\n'
+        assert parse(text).meta.default_permission_mode == "bypassPermissions"
+
+    def test_parse_manifest__meta_default_permission_mode_absent__none(self):
+        assert parse(_MINIMAL).meta.default_permission_mode is None
+
+    def test_parse_manifest__meta_bad_default_permission_mode__raises(self):
+        text = '[meta]\ndefault_permission_mode = "yolo"\n[[scenario]]\nid = "s"\nprompt = "go"\n'
+        with pytest.raises(m.ManifestError, match="default_permission_mode"):
+            parse(text)
 
 
 class TestRealBatteryScenarios:

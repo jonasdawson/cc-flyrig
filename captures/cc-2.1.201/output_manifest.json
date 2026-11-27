@@ -157,7 +157,7 @@
       "variant": null,
       "assertion": "pane-contains",
       "result": "unobservable",
-      "note": "requires agent-teams environment (P2 capability); unobservable outside that env"
+      "note": "requires agent-teams environment; unobservable outside that env"
     },
     {
       "event": "UserPromptSubmit",

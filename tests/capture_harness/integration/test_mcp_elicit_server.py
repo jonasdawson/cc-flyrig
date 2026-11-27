@@ -26,7 +26,7 @@ def _send(*messages: dict) -> list[dict]:
 
 class TestMcpElicitServer:
     def test_mcp_elicit_server__initialize__declares_elicitation_and_tools_capability(self):
-        """P8: initialize response advertises capabilities.elicitation + capabilities.tools + protocol 2025-03-26."""
+        """Initialize response advertises capabilities.elicitation + capabilities.tools + protocol 2025-03-26."""
         outputs = _send({"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {}})
 
         assert len(outputs) == 1
@@ -37,7 +37,7 @@ class TestMcpElicitServer:
         assert outputs[0]["id"] == 1
 
     def test_mcp_elicit_server__tools_list__returns_probe_elicit(self):
-        """P8: tools/list returns exactly one tool named probe_elicit."""
+        """tools/list returns exactly one tool named probe_elicit."""
         outputs = _send({"jsonrpc": "2.0", "id": 1, "method": "tools/list", "params": {}})
 
         assert len(outputs) == 1
@@ -46,7 +46,7 @@ class TestMcpElicitServer:
         assert tools[0]["name"] == "probe_elicit"
 
     def test_mcp_elicit_server__tools_call__emits_elicitation_create_then_returns(self):
-        """P8: tools/call probe_elicit emits elicitation/create, then returns a tool result on response."""
+        """tools/call probe_elicit emits elicitation/create, then returns a tool result on response."""
         fixed_id = "test-elicit-1"
         id_gen = lambda: fixed_id  # noqa: E731
 
@@ -90,7 +90,7 @@ class TestMcpElicitServer:
         assert "capture-value" in tool_result["result"]["content"][0]["text"]
 
     def test_mcp_elicit_server__notifications__silently_ignored(self):
-        """P8: notifications (no id field) produce no response."""
+        """Notifications (no id field) produce no response."""
         outputs = _send(
             {"jsonrpc": "2.0", "method": "notifications/initialized"},
             {"jsonrpc": "2.0", "id": 1, "method": "tools/list"},

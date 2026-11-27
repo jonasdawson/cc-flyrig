@@ -1,4 +1,4 @@
-"""P4: start a localhost always-429 fixture HTTP server for the scenario's lifetime.
+"""Start a localhost always-429 fixture HTTP server for the scenario's lifetime.
 
 ``ANTHROPIC_BASE_URL`` is auto-injected so all of CC's API calls hit the fixture, forcing the
 ``StopFailure`` ``rate_limit`` path reproducibly, independent of stored credentials.

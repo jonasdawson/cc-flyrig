@@ -5,11 +5,11 @@ from pathlib import Path
 import pytest
 
 from cc_flyrig.codegen.load import IntermediateRepresentationLoader
-from cc_flyrig.codegen.resolve import EnumSpec, RecordSpec, Resolver
+from cc_flyrig.codegen.resolve import EnumSpec, RecordSpec, Resolver, is_nullable
 from cc_flyrig.codegen.settings import Settings
 from cc_flyrig.codegen.toolchain import load_runtime_profile
 from cc_flyrig.codegen.translate import TypeNodeBuilder, snake_case
-from cc_flyrig.codegen.type_ast import ArrayNode, OpenObjectNode, RefNode, ScalarNode, UnionNode
+from cc_flyrig.codegen.type_ast import ArrayNode, LiteralNode, OpenObjectNode, RefNode, ScalarNode, UnionNode
 
 SCHEMAS_DIR = Path(__file__).parent.parent.parent.parent / "schemas"
 CC_VERSION = "2.1.177"
@@ -157,6 +157,49 @@ class TestResolve:
         # permissionDecision carries x-version-gated-defer -> optional despite the shape.
         pd = next(f for f in synth.fields if f.json_name == "permissionDecision")
         assert pd.required is False
+
+
+class TestIsNullable:
+    def test_is_nullable__type_list_with_null__true(self):
+        assert is_nullable({"type": ["string", "null"]})
+
+    def test_is_nullable__oneof_with_null_branch__true(self):
+        assert is_nullable({"oneOf": [{"$ref": "#/$defs/PermissionMode"}, {"type": "null"}]})
+
+    def test_is_nullable__plain_type__false(self):
+        assert not is_nullable({"type": "string"})
+
+    def test_is_nullable__oneof_without_null_branch__false(self):
+        assert not is_nullable({"oneOf": [{"type": "string"}, {"type": "array", "items": {"type": "object"}}]})
+
+
+class TestResolveCc2_1_332:
+    """The first IR with a *required* nullable field (``requested_model``) and an enum ``hookEventName``."""
+
+    @pytest.fixture(scope="class")
+    @classmethod
+    def resolver_332(cls):
+        settings = Settings(event="PreModelSwitch", cc_version="2.1.332", schemas_dir=SCHEMAS_DIR)
+        ir = IntermediateRepresentationLoader(settings).load()
+        profile = load_runtime_profile(SCHEMAS_DIR / "cc-2.1.332", "python")
+        return Resolver(ir, TypeNodeBuilder(ir, profile), profile)
+
+    def test_resolve__required_nullable_field__required_and_nullable(self, resolver_332):
+        spec = _by_name(resolver_332.resolve(["PreModelSwitchInput"]), "PreModelSwitchInput")
+        requested = next(f for f in spec.fields if f.json_name == "requested_model")
+        assert (requested.required, requested.nullable) == (True, True)
+        assert requested.type_node == ScalarNode("string")
+
+    def test_resolve__required_non_nullable_field__not_nullable(self, resolver_332):
+        spec = _by_name(resolver_332.resolve(["PreModelSwitchInput"]), "PreModelSwitchInput")
+        from_model = next(f for f in spec.fields if f.json_name == "from_model")
+        assert (from_model.required, from_model.nullable) == (True, False)
+
+    def test_resolve__hook_event_name_enum__yields_two_value_literal(self, resolver_332):
+        specs = resolver_332.resolve(["PreSkillShellCommandOutput"])
+        synth = _by_name(specs, "PreSkillShellCommandHookSpecificOutput")
+        hen = next(f for f in synth.fields if f.json_name == "hookEventName")
+        assert hen.type_node == LiteralNode(("PreSkillShellCommand", "PreToolUse"))
 
 
 def _by_name(specs, class_name):

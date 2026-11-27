@@ -148,7 +148,7 @@
       "variant": null,
       "assertion": "pane-contains",
       "result": "unobservable",
-      "note": "requires agent-teams environment (P2 capability); unobservable outside that env"
+      "note": "requires agent-teams environment; unobservable outside that env"
     },
     {
       "event": "UserPromptSubmit",
@@ -335,7 +335,7 @@
       "variant": null,
       "assertion": "unobservable",
       "result": "unobservable",
-      "note": "requires agent-teams env (P2); also tested as 'exit code 2' in taskcreated-exitcode2; FIELD_INVENTORY key uses hyphens"
+      "note": "requires agent-teams env; also tested as 'exit code 2' in taskcreated-exitcode2; FIELD_INVENTORY key uses hyphens"
     },
     {
       "event": "UserPromptSubmit",

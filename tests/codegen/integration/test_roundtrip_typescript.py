@@ -83,7 +83,7 @@ def _strip_nulls(payload: dict) -> dict:
 def _strip_nulls_recursive(payload):
     """Recursive variant for statusline: its captures nest explicit nulls inside typed objects (e.g.
 
-    ``context_window.current_usage``), unlike the hooks captures (Group 3 finding).
+    ``context_window.current_usage``), unlike the hooks captures.
     """
     if isinstance(payload, dict):
         return {k: _strip_nulls_recursive(v) for k, v in payload.items() if v is not None}

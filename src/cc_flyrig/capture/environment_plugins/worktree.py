@@ -1,4 +1,4 @@
-"""P10/P12: drive the keep/remove worktree dialog to Remove when a ``--worktree`` session exits.
+"""Drive the keep/remove worktree dialog to Remove when a ``--worktree`` session exits.
 
 Pre-accepts workspace trust (else ``--worktree`` exits before the TUI), strips ``$TMUX``/``$TMUX_PANE``
 from the argv (#39281: ``--worktree --tmux`` suppresses hooks), and navigates the dialog on teardown.

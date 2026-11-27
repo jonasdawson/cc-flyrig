@@ -1,4 +1,4 @@
-"""Tests for the statusline event family (ADR 0010) on the TypeScript runtime — Group 4.
+"""Tests for the statusline event family on the TypeScript runtime.
 
 Mirrors ``test_generate_typescript.py``'s committed-scaffold-as-reference pattern (hooks TS), scoped
 to the two statusline-family events, the same way ``test_generate_statusline.py`` scopes the Python
@@ -206,7 +206,7 @@ class TestCliEventDerivedFamilyRuntimeCombination:
 
 
 class TestHooksTypeScriptRegressionUnaffected:
-    """The hard regression bar (handoff invariant): adding statusline to TS must not change hooks TS."""
+    """The hard regression bar (invariant): adding statusline to TS must not change hooks TS."""
 
     def test_main__runtime_typescript_hooks_event__byte_identical_to_hooks_scaffold(self, tmp_path):
         argv = [

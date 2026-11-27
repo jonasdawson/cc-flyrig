@@ -1,4 +1,4 @@
-"""HTTP request handler that always responds 429 rate_limit_error (P4 capture fixture)."""
+"""HTTP request handler that always responds 429 rate_limit_error (capture fixture)."""
 
 import json
 from http.server import BaseHTTPRequestHandler

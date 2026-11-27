@@ -4,7 +4,7 @@ Generation is exercised end-to-end: the Generator writes a formatted entrypoint 
 matches a committed golden, and the generated module's handle()/main() behave as documented. The CLI
 composition root is covered for the happy path and the unknown-event boundary error.
 
-Group 2 adds parametrized tests over all 30 events (generation + golden match + round-trip) and
+Parametrized tests cover all 30 events (generation + golden match + round-trip) and
 pattern-specific behavior tests for the structurally distinct patterns (none, worktree-path-return,
 top-level-decision).
 """
@@ -118,7 +118,7 @@ def _golden(event: str) -> Path:
 
 
 # ---------------------------------------------------------------------------
-# Group 1: PreToolUse golden-path tests (kept for regression)
+# PreToolUse golden-path tests (kept for regression)
 # ---------------------------------------------------------------------------
 
 GOLDEN_PRE_TOOL_USE_DIR = GOLDEN_DIR / "pre_tool_use"
@@ -196,7 +196,7 @@ class TestCli:
         assert "unknown event" in capsys.readouterr().err
 
     def test_main__no_event__generates_all_events(self, tmp_path):
-        # No --cc-version pin either: families resolve independently (ADR 0010) to their own latest.
+        # No --cc-version pin either: families resolve independently to their own latest.
         # Both resolve to cc-2.1.200 today (a full version shipping both hooks.schema.json and
         # statusline.schema.json), and every family nests under python/cc-<version>/ in one run.
         hooks_version = cli._latest_cc_version(SCHEMAS_DIR, "hooks")
@@ -411,7 +411,7 @@ class TestBumpCopierDefault:
 
 
 # ---------------------------------------------------------------------------
-# Group 2: all 30 events — generation + golden match
+# All 30 events — generation + golden match
 # ---------------------------------------------------------------------------
 
 
@@ -438,7 +438,7 @@ class TestGenerateAllEvents:
 
 
 # ---------------------------------------------------------------------------
-# Group 2: round-trip over every captured payload (all events with captures)
+# Round-trip over every captured payload (all events with captures)
 # ---------------------------------------------------------------------------
 
 # Build the parametrize list: (event, payload_index) for every captured line.
@@ -477,7 +477,7 @@ class TestRoundTripAllEvents:
 
 
 # ---------------------------------------------------------------------------
-# Group 2: pattern-specific behavior tests
+# Pattern-specific behavior tests
 # ---------------------------------------------------------------------------
 
 
@@ -674,3 +674,44 @@ class TestNewShapes:
         restored = pr_module.PermissionRequestOutput.from_dict(wire)
         assert restored.hook_specific_output.decision.behavior == "allow"
         assert restored.to_dict() == wire
+
+
+# ---------------------------------------------------------------------------
+# cc-2.1.332: the first required-nullable field (PreModelSwitchInput.requested_model)
+# ---------------------------------------------------------------------------
+
+
+class TestRequiredNullableCc2_1_332:
+    """End-to-end through the real IR + ruff: ``requested_model`` is required but may be ``null``."""
+
+    @pytest.fixture(scope="class")
+    @classmethod
+    def pms_module(cls, tmp_path_factory):
+        version = "2.1.332"
+        out = tmp_path_factory.mktemp("pms")
+        settings = Settings(event="PreModelSwitch", cc_version=version, schemas_dir=SCHEMAS_DIR, out_dir=out)
+        generator = Generator(
+            settings=settings,
+            profile=toolchain.load_runtime_profile(SCHEMAS_DIR / f"cc-{version}", "python"),
+            loader=IntermediateRepresentationLoader(settings),
+            renderer=EntrypointRenderer(),
+        )
+        return _load_module(generator.run() / "_harness.py", "pre_model_switch_332_harness")
+
+    def test_run__required_nullable_field__annotated_str_or_none(self, pms_module):
+        assert pms_module.PreModelSwitchInput.__annotations__["requested_model"] == (str | None)
+
+    @pytest.mark.parametrize("requested_model", ["sonnet", None])
+    def test_from_dict__requested_model__round_trips(self, pms_module, requested_model):
+        payload = {
+            "session_id": "s",
+            "transcript_path": "/t.jsonl",
+            "cwd": "/w",
+            "hook_event_name": "PreModelSwitch",
+            "from_model": "claude-haiku-5-5",
+            "to_model": "claude-sonnet-5-5",
+            "requested_model": requested_model,
+            "source": "command",
+            "context_tokens": 36885,
+        }
+        assert pms_module.PreModelSwitchInput.from_dict(payload).to_dict() == payload

@@ -1,4 +1,4 @@
-"""P8: register a per-scenario MCP server via ``--mcp-config`` / ``--strict-mcp-config``.
+"""Register a per-scenario MCP server via ``--mcp-config`` / ``--strict-mcp-config``.
 
 ``mcp_elicit_server.py`` exposes ``probe_elicit`` and calls ``elicitation/create`` from within
 ``tools/call``, so CC fires ``Elicitation`` / ``ElicitationResult``. The server is per-scenario (not in

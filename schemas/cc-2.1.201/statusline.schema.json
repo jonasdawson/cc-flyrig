@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "schemas/cc-2.1.201/statusline.schema.json",
   "title": "Claude Code Statusline Family",
-  "description": "Canonical IR for the statusLine / subagentStatusLine stdin-JSON contracts. A sibling namespace to hooks.schema.json (ADR 0010) \u2014 statusLine is not a hook and must never be folded into the hooks IR. Reconciled against real captured payloads (capture_harness/spikes/statusline_spike.py) and the /statusline reference. CC version 2.1.201.",
+  "description": "Canonical IR for the statusLine / subagentStatusLine stdin-JSON contracts. A sibling namespace to hooks.schema.json \u2014 statusLine is not a hook and must never be folded into the hooks IR. Reconciled against real captured payloads and the /statusline reference. CC version 2.1.201.",
   "x-cc-version": "2.1.201",
   "x-schema-date": "2026-07-04",
   "$defs": {
@@ -185,7 +185,7 @@
       "properties": {
         "total_input_tokens": {
           "type": "integer",
-          "x-note": "Semantics changed cumulative -> current-context in CC 2.1.132; same name/type, not a shape change (feature doc Q2)."
+          "x-note": "Semantics changed cumulative -> current-context in CC 2.1.132; same name/type, not a shape change."
         },
         "total_output_tokens": {
           "type": "integer"
@@ -387,7 +387,7 @@
     },
     "StatusLineInput": {
       "type": "object",
-      "description": "The whole statusLine contract \u2014 statusLine has no output schema (D3); inputs are authored entirely from capture.",
+      "description": "The whole statusLine contract \u2014 statusLine has no output schema; inputs are authored entirely from capture.",
       "x-decision-pattern": "text-return",
       "required": [
         "cwd",
@@ -422,7 +422,7 @@
         "fast_mode": {
           "type": "boolean",
           "description": "Whether fast mode is active.",
-          "x-drift": "additive \u2014 present in captured payloads, undocumented in statusline_types.py; feed back into that file (feature doc, U3)."
+          "x-drift": "additive \u2014 present in captured payloads, not in the original hand-authored types."
         },
         "model": {
           "$ref": "#/$defs/ModelInfo"

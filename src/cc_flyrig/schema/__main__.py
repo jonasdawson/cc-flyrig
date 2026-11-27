@@ -5,8 +5,8 @@ Commands
 check      Validate committed captures against the committed schema, per family, per version (the
            CI gate, formerly ``capture diff``); exits non-zero on drift.
 seed       Forward-copy the latest schema of each family into a new version's schema dir.
-reconcile  Merge observed capture fields into the committed schema as additive proposals. (Group 3.)
-diff       Cross-version delta between two named committed schema versions. (Group 3.)
+reconcile  Merge observed capture fields into the committed schema as additive proposals.
+diff       Cross-version delta between two named committed schema versions.
 
 This is the composition root: all I/O (argparse, globbing, file reads/writes, printing, exit
 codes) lives here. Pure contract logic lives in ``locate.py``, ``seed.py``, ``drift_detector.py``,
@@ -89,7 +89,7 @@ def _cmd_check(args) -> int:
     advisory = [f for f in all_findings if f.kind == "cc-hooks-skill-advisory"]
     blocking = [f for f in all_findings if f.kind != "cc-hooks-skill-advisory"]
 
-    for f in advisory:  # reported, never fails the gate (feature D6)
+    for f in advisory:  # reported, never fails the gate
         print(f"  advisory: {f}")
     if blocking:
         print(f"DRIFT: {len(blocking)} finding(s):", file=sys.stderr)

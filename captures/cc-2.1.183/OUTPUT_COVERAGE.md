@@ -64,7 +64,7 @@ Validated: 2026-06-20T14:51:40.767641+00:00
 | SessionStart | hookSpecificOutput.sessionTitle | — | unobservable | no scenario; no external signal observable from pane |
 | SessionStart | hookSpecificOutput.watchPaths | — | pass |  |
 | SessionStart | hookSpecificOutput.reloadSkills | — | unobservable | no external signal |
-| TaskCreated | exit-code-2 | — | unobservable | requires agent-teams env (P2); also tested as 'exit code 2' in taskcreated-exitcode2; FIELD_INVENTORY key uses hyphens |
+| TaskCreated | exit-code-2 | — | unobservable | requires agent-teams env; also tested as 'exit code 2' in taskcreated-exitcode2; FIELD_INVENTORY key uses hyphens |
 | UserPromptSubmit | continue | false | pass | tested in commonoutput-continue-false as 'CommonOutput.continue' (spool-present, pass); FIELD_INVENTORY key is 'continue' |
 | UserPromptSubmit | stopReason | — | pass |  |
 | UserPromptSubmit | suppressOutput | — | unobservable | suppresses hook's own stdout from CC transcript; no external signal |

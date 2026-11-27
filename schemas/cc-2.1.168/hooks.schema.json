@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "schemas/cc-2.1.168/hooks.schema.json",
   "title": "Claude Code Hook Events",
-  "description": "Canonical IR for Claude Code hook event I/O shapes. Reference-authored per ADR 0006. CC version 2.1.168.",
+  "description": "Canonical IR for Claude Code hook event I/O shapes. Reference-authored from the Claude Code hooks reference. CC version 2.1.168.",
   "x-cc-version": "2.1.168",
   "x-schema-date": "2026-06-06",
   "$defs": {
@@ -40,7 +40,7 @@
     },
     "OpenObject": {
       "type": "object",
-      "description": "Open JSON object \u2014 tool_input and tool_response left untyped per ADR 0006."
+      "description": "Open JSON object \u2014 tool_input and tool_response left untyped because their shape varies by tool."
     },
     "CommonInput": {
       "type": "object",

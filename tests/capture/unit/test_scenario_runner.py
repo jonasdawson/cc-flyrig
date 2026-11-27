@@ -5,6 +5,7 @@ when a session starts, so the orchestration sequence and completion signalling c
 """
 
 import json
+from dataclasses import replace
 from pathlib import Path
 
 import pytest
@@ -236,7 +237,7 @@ class TestRunScenario:
         assert (tmp_path / "sandbox" / "b1" / "read" / "fixture.txt").read_text() == "hi"
 
     def test_run_scenario__git_init_true__sandbox_is_valid_git_repo(self, tmp_path, fast_clock):
-        """P9: git_repo=True seeds the sandbox with a .git and a HEAD commit for git worktree add."""
+        """git_repo=True seeds the sandbox with a .git and a HEAD commit for git worktree add."""
         import subprocess
 
         scenario = make_scenario(id="wt", prompt="go", git_repo=True)
@@ -272,7 +273,7 @@ class TestRunScenario:
 
 
 # ---------------------------------------------------------------------------
-# P1 — occurrence-count interaction wait
+# Occurrence-count interaction wait
 # ---------------------------------------------------------------------------
 
 
@@ -302,7 +303,7 @@ class TestSpoolEventCount:
 class _IncrementalFakeTmux(FakeTmux):
     """FakeTmux variant that writes an extra Stop file on each send_tokens call.
 
-    Used to verify P1 serialization: after each step's send_tokens fires, the next step's
+    Used to verify occurrence-count serialization: after each step's send_tokens fires, the next step's
     baseline-then-wait sees a new occurrence and unblocks immediately.
     """
 
@@ -325,7 +326,7 @@ class _IncrementalFakeTmux(FakeTmux):
 
 class TestP1Serialization:
     def test_run_scenario__repeated_wait_for__serializes_on_new_occurrence(self, tmp_path, fast_clock):
-        """P1: each interaction step waits for a new occurrence, not a previously-seen one."""
+        """Each interaction step waits for a new occurrence, not a previously-seen one."""
         tmux = _IncrementalFakeTmux()
         scenario = make_scenario(
             id="compact-manual",
@@ -345,13 +346,13 @@ class TestP1Serialization:
 
 
 # ---------------------------------------------------------------------------
-# P2 — per-scenario env
+# Per-scenario env
 # ---------------------------------------------------------------------------
 
 
 class TestP2Env:
     def test_run_scenario__scenario_env__merged_into_session_env_flyrig_wins(self, tmp_path, fast_clock):
-        """P2: scenario env is forwarded to new_session; FLYRIG_* keys are not overwritten."""
+        """Scenario env is forwarded to new_session; FLYRIG_* keys are not overwritten."""
         captured_env: dict = {}
 
         class _CapturingTmux(FakeTmux):
@@ -373,13 +374,13 @@ class TestP2Env:
 
 
 # ---------------------------------------------------------------------------
-# P3 — mid-session write_sandbox_file on Interaction
+# Mid-session write_sandbox_file on Interaction
 # ---------------------------------------------------------------------------
 
 
 class TestP3WriteSandboxFile:
     def test_run_scenario__write_sandbox_file__written_before_send_keys(self, tmp_path, fast_clock):
-        """P3: the write happens (with correct content) and send_tokens is still called."""
+        """The write happens (with correct content) and send_tokens is still called."""
         write_order: list[str] = []
 
         class _OrderingTmux(FakeTmux):
@@ -414,7 +415,7 @@ class TestP3WriteSandboxFile:
         assert write_order == ["file_exists"]  # file was written before send_tokens
 
     def test_run_scenario__no_write_sandbox_file__send_keys_unaffected(self, tmp_path, fast_clock):
-        """P3: an Interaction without write_sandbox_file still sends keys normally."""
+        """An Interaction without write_sandbox_file still sends keys normally."""
         tmux = FakeTmux(emit=("Stop", "SessionEnd"))
         scenario = make_scenario(
             id="s",
@@ -426,13 +427,13 @@ class TestP3WriteSandboxFile:
 
 
 # ---------------------------------------------------------------------------
-# P4 — fixture 429 server
+# Fixture 429 server
 # ---------------------------------------------------------------------------
 
 
 class TestP4FixtureServer:
     def test_run_scenario__fixture_server__injects_anthropic_base_url(self, tmp_path, fast_clock):
-        """P4: when fixture_server='ratelimit-429', ANTHROPIC_BASE_URL is set in the child env."""
+        """When fixture_server='ratelimit-429', ANTHROPIC_BASE_URL is set in the child env."""
         captured_env: dict = {}
 
         class _CapturingTmux(FakeTmux):
@@ -450,7 +451,7 @@ class TestP4FixtureServer:
         assert "127.0.0.1:8472" in captured_env["ANTHROPIC_BASE_URL"]
 
     def test_run_scenario__no_fixture_server__no_anthropic_base_url(self, tmp_path, fast_clock):
-        """P4: without fixture_server, ANTHROPIC_BASE_URL is not injected."""
+        """Without fixture_server, ANTHROPIC_BASE_URL is not injected."""
         captured_env: dict = {}
 
         class _CapturingTmux(FakeTmux):
@@ -464,13 +465,13 @@ class TestP4FixtureServer:
 
 
 # ---------------------------------------------------------------------------
-# P6 — model + effort flags
+# Model + effort flags
 # ---------------------------------------------------------------------------
 
 
 class TestP6ModelEffort:
     def test_run_scenario__scenario_model_and_battery_effort__appended_to_argv(self, tmp_path, fast_clock):
-        """P6: scenario model overrides the battery default; effort comes from the battery default."""
+        """Scenario model overrides the battery default; effort comes from the battery default."""
         captured_argv: list = []
 
         class _ArgvTmux(FakeTmux):
@@ -500,7 +501,7 @@ class TestP6ModelEffort:
         assert captured_argv[captured_argv.index("--effort") + 1] == "medium"  # battery default
 
     def test_run_scenario__default_model_effort__used_when_scenario_unset(self, tmp_path, fast_clock):
-        """P6: battery defaults apply when the scenario does not set model/effort."""
+        """Battery defaults apply when the scenario does not set model/effort."""
         captured_argv: list = []
 
         class _ArgvTmux(FakeTmux):
@@ -530,7 +531,7 @@ class TestP6ModelEffort:
         assert captured_argv[captured_argv.index("--effort") + 1] == "low"
 
     def test_run_scenario__no_model_no_effort__no_flags(self, tmp_path, fast_clock):
-        """P6: when neither scenario nor defaults set model/effort, no flags are appended."""
+        """When neither scenario nor defaults set model/effort, no flags are appended."""
         captured_argv: list = []
 
         class _ArgvTmux(FakeTmux):
@@ -545,13 +546,13 @@ class TestP6ModelEffort:
 
 
 # ---------------------------------------------------------------------------
-# P8 — per-scenario MCP server via --mcp-config
+# Per-scenario MCP server via --mcp-config
 # ---------------------------------------------------------------------------
 
 
 class TestP8McpServer:
     def test_run_scenario__mcp_server__writes_config_and_adds_flag(self, tmp_path, fast_clock):
-        """P8: mcp_server set → mcp-config.json written with server path, argv carries --mcp-config."""
+        """mcp_server set → mcp-config.json written with server path, argv carries --mcp-config."""
         captured_argv: list = []
 
         class _ArgvTmux(FakeTmux):
@@ -588,7 +589,7 @@ class TestP8McpServer:
         assert "mcp_elicit_server.py" in cfg["mcpServers"]["elicit-probe"]["args"][0]
 
     def test_run_scenario__no_mcp_server__no_flag_no_file(self, tmp_path, fast_clock):
-        """P8: without mcp_server, --mcp-config is absent and no config file is written."""
+        """Without mcp_server, --mcp-config is absent and no config file is written."""
         captured_argv: list = []
 
         class _ArgvTmux(FakeTmux):
@@ -606,13 +607,13 @@ class TestP8McpServer:
 
 
 # ---------------------------------------------------------------------------
-# P9 — native settings selection for git_init scenarios
+# Native settings selection for git_init scenarios
 # ---------------------------------------------------------------------------
 
 
 class TestP9NativeSettingsSelection:
     def test_run_scenario__git_init__uses_native_settings_no_shim(self, tmp_path, fast_clock):
-        """P9: git_repo=True selects native_settings_path (no WorktreeCreate shim) over settings_path."""
+        """git_repo=True selects native_settings_path (no WorktreeCreate shim) over settings_path."""
         captured_argv: list = []
 
         class _ArgvTmux(FakeTmux):
@@ -646,7 +647,7 @@ class TestP9NativeSettingsSelection:
 
 class TestP10WorktreeRemoveOnExit:
     def test_teardown__worktree_remove_on_exit__sends_2_enter_after_sleep(self, tmp_path, fast_clock):
-        """P10/P12: worktree=True sleeps then sends '2'+Enter to select Remove."""
+        """worktree=True sleeps then sends '2'+Enter to select Remove."""
         sleeps: list[float] = []
         fake = FakeTmux(emit=("Stop", "WorktreeRemove", "SessionEnd"))
         scenario = make_scenario(id="wt-remove", prompt="go", worktree=True, git_repo=True)
@@ -676,7 +677,7 @@ class TestP10WorktreeRemoveOnExit:
         assert enter_after_two is not None, "Enter must confirm Remove after '2'"
 
     def test_teardown__no_worktree_flag__no_remove_keys_sent(self, tmp_path, fast_clock):
-        """P10: worktree_remove_on_exit=False (default) does not inject '2'+Enter into teardown."""
+        """worktree_remove_on_exit=False (default) does not inject '2'+Enter into teardown."""
         fake = FakeTmux()
         scenario = make_scenario(id="plain", prompt="go")
 
@@ -698,7 +699,7 @@ class TestP10WorktreeRemoveOnExit:
         assert ("send_text", "2") not in text_calls
 
     def test_launch__worktree_remove_on_exit__strips_tmux_env(self, tmp_path, fast_clock):
-        """P12: worktree=True prepends env -u TMUX -u TMUX_PANE to the CC argv."""
+        """worktree=True prepends env -u TMUX -u TMUX_PANE to the CC argv."""
         fake = FakeTmux(emit=("Stop", "SessionEnd"))
         scenario = make_scenario(id="wt-remove", prompt="go", worktree=True, git_repo=True)
 
@@ -713,7 +714,7 @@ class TestP10WorktreeRemoveOnExit:
         assert claude_idx is not None and claude_idx > 4, "claude binary must follow the env prefix"
 
     def test_launch__no_worktree_flag__no_tmux_strip(self, tmp_path, fast_clock):
-        """P12: worktree_remove_on_exit=False (default) does not prepend env -u TMUX."""
+        """worktree_remove_on_exit=False (default) does not prepend env -u TMUX."""
         fake = FakeTmux()
         scenario = make_scenario(id="plain", prompt="go")
 
@@ -821,7 +822,7 @@ class TestCheckAssertion:
 
 
 # ---------------------------------------------------------------------------
-# Group 2 — run_scenarios() family wiring (ADR 0010): statusline settings, per-family
+# run_scenarios() family wiring: statusline settings, per-family
 # consolidation, and STATUSLINE_COVERAGE.md alongside the unchanged hooks pipeline.
 # ---------------------------------------------------------------------------
 
@@ -900,7 +901,7 @@ class TestRunScenariosFamilyWiring:
         assert not (cov_dir / "SubagentStatusLine.jsonl").exists()
 
     def test_run_scenarios__mixed_family_events__hooks_coverage_unaffected(self, tmp_path, monkeypatch):
-        """D5: the hooks-family INPUT_COVERAGE.md and Stop.jsonl are written exactly as before."""
+        """The hooks-family INPUT_COVERAGE.md and Stop.jsonl are written exactly as before."""
         tmux = _VersionedFakeTmux(emit=("Stop", "SessionEnd", "StatusLine", "SubagentStatusLine"))
         self._run(tmp_path, monkeypatch, tmux)
 
@@ -922,7 +923,7 @@ class TestRunScenariosFamilyWiring:
 
 
 # ---------------------------------------------------------------------------
-# Group 2 — summarize_scenario() (ADR 0012 §5): pure per-scenario completion summary.
+# summarize_scenario(): pure per-scenario completion summary.
 # ---------------------------------------------------------------------------
 
 
@@ -968,3 +969,213 @@ class TestSummarizeScenario:
             {"StatusLine": 1},
         )
         assert line == "  ✓ hooks 2/2 expected · statusline ×1"
+
+
+# ---------------------------------------------------------------------------
+# Launch-time dialogs and readiness (cc-2.1.332)
+# ---------------------------------------------------------------------------
+
+# Real cc-2.1.332 dialog text (blank lines removed).
+_TRUST_HEAD = (
+    " Quick safety check: Is this a project you created or one you trust? (Like your own code, a well-known open"
+    " source project, or work from your team). If not, take a moment to review what's in this\n"
+    " folder first.\n"
+    " Claude Code'll be able to read, edit, and execute files here.\n"
+    " Security guide"
+)
+_BYPASS_HEAD = (
+    "  WARNING: Claude Code running in Bypass Permissions mode\n"
+    "  In Bypass Permissions mode, Claude Code will not ask for your approval before running potentially"
+    " dangerous commands.\n"
+    "  ..."
+)
+_DIALOG_FOOTER = " Enter to confirm · Esc to cancel"
+_MANUAL_FOOTER = "  ⏸ manual mode on · ? for shortcuts · ← for agents"
+_BYPASS_FOOTER = "  ⏵⏵ bypass permissions on (shift+tab to cycle)"
+
+
+class _DialogTmux:
+    """A scripted launch: a queue of dialogs (head, options, accept index, initial focus), then a
+    ready footer. Down moves focus (unless ``swallow_down``); Enter on the accept option dismisses the
+    dialog, Enter on any other option "exits" the session. Records (key, focused label) per press."""
+
+    def __init__(self, dialogs, *, ready=_MANUAL_FOOTER, swallow_down=False):
+        self._dialogs = [list(d) for d in dialogs]
+        self._ready = ready
+        self._swallow_down = swallow_down
+        self.keys: list[tuple[str, str | None]] = []
+        self.exited = False
+
+    def _focused(self):
+        if not self._dialogs:
+            return None
+        _, options, _, focus = self._dialogs[0]
+        return options[focus]
+
+    def has_session(self, name):
+        return not self.exited
+
+    def send_key(self, name, key):
+        self.keys.append((key, self._focused()))
+        if self.exited or not self._dialogs:
+            return
+        dialog = self._dialogs[0]
+        _, options, accept, focus = dialog
+        if key == "Down" and not self._swallow_down:
+            dialog[3] = (focus + 1) % len(options)
+        elif key == "Enter":
+            if focus == accept:
+                self._dialogs.pop(0)
+            else:
+                self.exited = True
+
+    def capture_pane(self, name):
+        if self.exited:
+            return ""
+        if not self._dialogs:
+            return "❯ \n" + self._ready
+        head, options, _, focus = self._dialogs[0]
+        rows = [f" ❯ {o}" if i == focus else f"   {o}" for i, o in enumerate(options)]
+        return "\n".join([head, *rows, _DIALOG_FOOTER])
+
+
+def _trust(focus=0):
+    return (_TRUST_HEAD, ["No, exit", "Yes, I trust this folder"], 1, focus)
+
+
+def _bypass(focus=0):
+    return (_BYPASS_HEAD, ["No, exit", "Yes, I accept"], 1, focus)
+
+
+def _wait(fake, timeout_s=30.0):
+    state = {"t": 0.0}
+
+    def sleep(s):
+        state["t"] += s
+
+    def clock():
+        state["t"] += 0.01
+        return state["t"]
+
+    return orch._wait_ready(fake, "s", timeout_s, sleep, clock, poll=1.0)
+
+
+class TestWaitReady:
+    def test_wait_ready__trust_dialog_no_focused_first__moves_down_then_enters(self):
+        fake = _DialogTmux([_trust(focus=0)])
+        assert _wait(fake) is True
+        assert [k for k, _ in fake.keys] == ["Down", "Enter"]
+        assert ("Enter", "No, exit") not in fake.keys
+        assert not fake.exited
+
+    def test_wait_ready__trust_dialog_yes_focused_first__enters_without_moving(self):
+        fake = _DialogTmux([_trust(focus=1)])  # older CC: "Yes" default-highlighted
+        assert _wait(fake) is True
+        assert [k for k, _ in fake.keys] == ["Enter"]
+
+    def test_wait_ready__bypass_warning_dialog__accepts_yes_i_accept(self):
+        fake = _DialogTmux([_bypass(focus=0)], ready=_BYPASS_FOOTER)
+        assert _wait(fake) is True
+        assert fake.keys == [("Down", "No, exit"), ("Enter", "Yes, I accept")]
+
+    def test_wait_ready__trust_then_bypass__each_accepted_once(self):
+        fake = _DialogTmux([_trust(), _bypass()], ready=_BYPASS_FOOTER)
+        assert _wait(fake) is True
+        assert [label for k, label in fake.keys if k == "Enter"] == ["Yes, I trust this folder", "Yes, I accept"]
+        assert not fake.exited
+
+    def test_wait_ready__accept_option_never_focused__never_sends_enter_and_returns_false(self):
+        fake = _DialogTmux([_trust(focus=0)], swallow_down=True)
+        assert _wait(fake, timeout_s=10.0) is False
+        assert "Enter" not in [k for k, _ in fake.keys]
+        assert not fake.exited
+
+    def test_wait_ready__bypass_mode_footer__returns_true(self):
+        fake = _DialogTmux([], ready=_BYPASS_FOOTER)
+        assert _wait(fake) is True
+        assert fake.keys == []
+
+    def test_wait_ready__manual_mode_footer__returns_true(self):
+        fake = _DialogTmux([], ready=_MANUAL_FOOTER)
+        assert _wait(fake) is True
+        assert fake.keys == []
+
+    def test_wait_ready__manual_mode_footer_with_statusline__returns_true(self):
+        # cc-2.1.332 with a statusline configured (every capture scenario) drops "? for shortcuts".
+        fake = _DialogTmux([], ready="  ⏸ manual mode on · ← for agents")
+        assert _wait(fake) is True
+
+    def test_wait_ready__no_ready_marker__times_out_false(self):
+        fake = _DialogTmux([], ready="  Loading…")
+        assert _wait(fake, timeout_s=5.0) is False
+
+
+# ---------------------------------------------------------------------------
+# Battery-wide default permission mode
+# ---------------------------------------------------------------------------
+
+
+def _argv_for(scenario, tmp_path, fast_clock, **kwargs) -> list[str]:
+    captured: list[str] = []
+
+    class _ArgvTmux(FakeTmux):
+        def new_session(self, name, cwd, command, env=None):
+            captured.extend(command)
+            super().new_session(name, cwd, command, env)
+
+    orch.run_scenario(
+        scenario,
+        environment_plugins=ENVIRONMENT_PLUGINS,
+        claude_bin="claude",
+        settings_path=tmp_path / "probe-settings.json",
+        spool_dir=tmp_path / "spool",
+        sandbox_root=tmp_path / "sandbox",
+        cc_version="2.1.332",
+        batch_id="b1",
+        tmux=_ArgvTmux(),
+        sleep=lambda _: None,
+        clock=fast_clock,
+        **kwargs,
+    )
+    return captured
+
+
+class TestDefaultPermissionMode:
+    def test_run_scenario__no_scenario_mode_meta_default_set__argv_uses_meta_default(self, tmp_path, fast_clock):
+        argv = _argv_for(
+            make_scenario(id="s", prompt="go"), tmp_path, fast_clock, default_permission_mode="bypassPermissions"
+        )
+        assert argv[argv.index("--permission-mode") + 1] == "bypassPermissions"
+
+    def test_run_scenario__scenario_mode_set__overrides_meta_default(self, tmp_path, fast_clock):
+        argv = _argv_for(
+            make_scenario(id="s", prompt="go", permission_mode="default"),
+            tmp_path,
+            fast_clock,
+            default_permission_mode="bypassPermissions",
+        )
+        assert argv.count("--permission-mode") == 1
+        assert argv[argv.index("--permission-mode") + 1] == "default"
+
+    def test_run_scenario__neither_set__no_permission_mode_flag(self, tmp_path, fast_clock):
+        argv = _argv_for(make_scenario(id="s", prompt="go"), tmp_path, fast_clock)
+        assert "--permission-mode" not in argv
+
+    def test_run_scenarios__meta_default_permission_mode__reaches_scenario_argv(self, tmp_path, monkeypatch):
+        """Wiring: run_scenarios passes manifest.meta.default_permission_mode through to run_scenario."""
+        tmux = _VersionedFakeTmux()
+        manifest = replace(TestRunScenariosFamilyWiring._make_manifest(None), meta=Meta(default_permission_mode="plan"))
+        monkeypatch.setattr(orch, "Tmux", lambda: tmux)
+        orch.run_scenarios(
+            manifest,
+            ENVIRONMENT_PLUGINS,
+            orch.CapturePaths(
+                probe=tmp_path / "capture_harness" / "hooks" / "probe.py",
+                captures=tmp_path / "captures",
+                spool=tmp_path / "spool",
+                sandbox=tmp_path / "sandbox",
+            ),
+            claude=orch.ClaudeInstall(bin="claude", version="2.1.168"),
+        )
+        (command,) = [c[2] for c in tmux.calls if c[0] == "new_session"]
+        assert command[command.index("--permission-mode") + 1] == "plan"

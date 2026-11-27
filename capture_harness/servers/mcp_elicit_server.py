@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""MCP elicitation probe server for the cc-flyrig (P8 — maintainer capture tooling).
+"""MCP elicitation probe server for the cc-flyrig (maintainer capture tooling).
 
 A minimal stdlib MCP JSON-RPC 2.0 server over stdio. Exposes one tool (``probe_elicit``) that
 calls ``elicitation/create`` mid-invocation, causing CC to fire the ``Elicitation`` and

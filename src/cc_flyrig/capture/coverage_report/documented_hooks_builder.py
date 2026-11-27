@@ -2,8 +2,8 @@
 
 Reads the menu artifact as plain JSON (the artifact is the interface — never imports the scanner) and
 combines it with the IR schema to produce ``HOOKS_MENU.md``: the roster-status line vs the IR, the
-per-entry docs scraped from ``/hooks``, and the advisory field cross-check. See the hooks-menu-source
-evolution; MENU is roster-authoritative, cross-check-advisory, doc-informal.
+per-entry docs scraped from ``/hooks``, and the advisory field cross-check. The
+menu is roster-authoritative, cross-check-advisory, doc-informal.
 """
 
 import json

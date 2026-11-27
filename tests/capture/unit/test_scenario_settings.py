@@ -16,7 +16,10 @@ class TestBuildScenarioSettings:
     def test_build_scenario_settings__single_entry__produces_hooks_dict(self):
         entries = [HookEntry("Stop", "python probe.py")]
         result = _build_scenario_settings(entries)
-        assert result == {"hooks": {"Stop": [{"hooks": [{"type": "command", "command": "python probe.py"}]}]}}
+        assert result == {
+            "hooks": {"Stop": [{"hooks": [{"type": "command", "command": "python probe.py"}]}]},
+            "skipDangerousModePermissionPrompt": True,
+        }
 
     def test_build_scenario_settings__with_matcher__includes_matcher_key(self):
         entries = [HookEntry("FileChanged", "python probe.py", matcher="watched.txt")]
@@ -26,7 +29,8 @@ class TestBuildScenarioSettings:
                 "FileChanged": [
                     {"matcher": "watched.txt", "hooks": [{"type": "command", "command": "python probe.py"}]}
                 ]
-            }
+            },
+            "skipDangerousModePermissionPrompt": True,
         }
 
     def test_build_scenario_settings__no_matcher__matcher_key_absent(self):
@@ -40,19 +44,29 @@ class TestBuildScenarioSettings:
         assert set(result["hooks"]) == {"Stop", "SessionEnd"}
 
     def test_build_scenario_settings__empty__empty_hooks(self):
-        assert _build_scenario_settings([]) == {"hooks": {}}
+        assert _build_scenario_settings([]) == {"hooks": {}, "skipDangerousModePermissionPrompt": True}
 
-    def test_build_scenario_settings__hooks_only__byte_identical_to_pre_statusline_shape(self):
-        """D5 back-compat gate: no statusline entries means no statusLine/subagentStatusLine keys."""
+    def test_build_scenario_settings__any_entries__sets_skip_dangerous_mode_permission_prompt_true(self):
+        """cc-2.1.332: suppress the launch-time Bypass Permissions warning in every generated file."""
+        for entries, statusline in (
+            ([], ()),
+            ([HookEntry("Stop", "python probe.py")], ()),
+            ([HookEntry("Stop", "python probe.py")], [StatusLineEntry("statusLine", "python3 probe.py")]),
+        ):
+            assert _build_scenario_settings(entries, statusline)["skipDangerousModePermissionPrompt"] is True
+
+    def test_build_scenario_settings__hooks_only__hooks_plus_skip_dangerous_prompt_key(self):
+        """No statusline entries means no statusLine/subagentStatusLine keys: just hooks + the skip key."""
         entries = [HookEntry("Stop", "python probe.py"), HookEntry("FileChanged", "python probe.py", matcher="x")]
         result = _build_scenario_settings(entries)
         assert result == {
             "hooks": {
                 "Stop": [{"hooks": [{"type": "command", "command": "python probe.py"}]}],
                 "FileChanged": [{"matcher": "x", "hooks": [{"type": "command", "command": "python probe.py"}]}],
-            }
+            },
+            "skipDangerousModePermissionPrompt": True,
         }
-        assert set(result) == {"hooks"}
+        assert set(result) == {"hooks", "skipDangerousModePermissionPrompt"}
 
     def test_build_scenario_settings__with_statusline_entries__adds_top_level_keys(self):
         entries = [HookEntry("Stop", "python probe.py")]

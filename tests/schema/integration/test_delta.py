@@ -1,6 +1,6 @@
 """Integration test: delta() against the real committed cc-2.1.185 -> cc-2.1.198 schema pair.
 
-This is the documented real history (ADR 0011): ``prompt_id`` was hand-authored into
+This is the documented real history: ``prompt_id`` was hand-authored into
 cc-2.1.198/cc-2.1.200's ``CommonInput``. Reads the committed schemas read-only.
 """
 

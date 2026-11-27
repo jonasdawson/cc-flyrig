@@ -30,8 +30,12 @@ CAPTURE_METHODS: frozenset[str] = frozenset(
     }
 )
 
-# Valid --effort flag values confirmed via `claude --help` (cc-2.1.168) (P6).
+# Valid --effort flag values confirmed via `claude --help` (cc-2.1.168).
 EFFORT_LEVELS: frozenset[str] = frozenset({"low", "medium", "high", "xhigh", "max"})
+
+# Valid --permission-mode values; mirrors the IR's PermissionMode enum
+# (schemas/cc-2.1.233/hooks.schema.json $defs/PermissionMode).
+PERMISSION_MODES: frozenset[str] = frozenset({"default", "plan", "acceptEdits", "auto", "dontAsk", "bypassPermissions"})
 
 _DEFAULT_TIMEOUT_S = 180
 
@@ -52,7 +56,7 @@ class Interaction:
 
     wait_for: str  # an event name to wait for in the spool, or a substring to match in the pane
     send_keys: tuple[str, ...]
-    # P3: optional mid-session file write applied in-place (inotify MODIFY) before send_keys.
+    # Optional mid-session file write applied in-place (inotify MODIFY) before send_keys.
     write_sandbox_file: str | None = None  # path relative to the sandbox
     content: str = ""
 
@@ -70,7 +74,7 @@ class Expect:
 class Launch:
     """How the ``claude`` process is invoked."""
 
-    # P6: model alias/ID for --model; overrides the battery default_model.
+    # Model alias/ID for --model; overrides the battery default_model.
     model: str | None = None
     permission_mode: str | None = None  # --permission-mode (default/bypassPermissions/auto/...)
     flags: tuple[str, ...] = ()  # extra CLI flags appended to argv (e.g. --init-only, --worktree)
@@ -81,7 +85,7 @@ class Setup:
     """Generic sandbox preparation applied before the run starts."""
 
     sandbox_files: tuple[SandboxFile, ...] = ()
-    # P2: extra env vars merged into the child process env (FLYRIG_* vars take precedence).
+    # Extra env vars merged into the child process env (FLYRIG_* vars take precedence).
     env: tuple[tuple[str, str], ...] = ()
 
 
@@ -133,9 +137,11 @@ class Meta:
     """Battery-wide settings from the manifest's ``[meta]`` table."""
 
     description: str = ""
-    # P6: battery-wide model/effort defaults; a scenario's launch.model overrides default_model.
+    # Battery-wide model/effort defaults; a scenario's launch.model overrides default_model.
     default_model: str | None = None
     default_effort: str | None = None
+    # battery-wide `--permission-mode`; a scenario's `launch.permission_mode` overrides it
+    default_permission_mode: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -248,6 +254,10 @@ def _build_launch(raw: dict, sid: str) -> Launch:
     permission_mode = raw.get("permission_mode")
     if permission_mode is not None and not isinstance(permission_mode, str):
         raise ManifestError(f"scenario {sid!r}: launch.permission_mode must be a string")
+    if permission_mode is not None and permission_mode not in PERMISSION_MODES:
+        raise ManifestError(
+            f"scenario {sid!r}: launch.permission_mode {permission_mode!r} not in {sorted(PERMISSION_MODES)}"
+        )
     flags = _require_str_list(raw.get("flags", []), f"scenario {sid!r}: launch.flags")
     return Launch(model=model, permission_mode=permission_mode, flags=flags)
 
@@ -330,13 +340,20 @@ def _build_scenario(raw: dict, seen_ids: set[str], registry: Mapping[str, Enviro
 
 
 def _validate_meta(meta: dict) -> None:
-    """Validate the ``[meta]`` table's value domains (model/effort defaults)."""
+    """Validate the ``[meta]`` table's value domains (model/effort/permission-mode defaults)."""
     default_effort = meta.get("default_effort")
     if default_effort is not None and (not isinstance(default_effort, str) or default_effort not in EFFORT_LEVELS):
         raise ManifestError(f"meta.default_effort {default_effort!r} not in {sorted(EFFORT_LEVELS)}")
     default_model = meta.get("default_model")
     if default_model is not None and not isinstance(default_model, str):
         raise ManifestError("meta.default_model must be a string")
+    default_permission_mode = meta.get("default_permission_mode")
+    if default_permission_mode is not None and (
+        not isinstance(default_permission_mode, str) or default_permission_mode not in PERMISSION_MODES
+    ):
+        raise ManifestError(
+            f"meta.default_permission_mode {default_permission_mode!r} not in {sorted(PERMISSION_MODES)}"
+        )
 
 
 def _build_meta(data: dict) -> Meta:
@@ -348,6 +365,7 @@ def _build_meta(data: dict) -> Meta:
         description=str(meta.get("description", "")),
         default_model=meta.get("default_model"),
         default_effort=meta.get("default_effort"),
+        default_permission_mode=meta.get("default_permission_mode"),
     )
 
 

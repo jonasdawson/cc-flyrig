@@ -15,8 +15,11 @@ REDACT_KEYS: dict[str, str] = {
     "transcript_path": "<TRANSCRIPT_PATH>",
     "agent_transcript_path": "<TRANSCRIPT_PATH>",
     # WorktreeCreate/WorktreeRemove carry the absolute worktree dir path; redact for a
-    # machine-independent corpus so the committed diff is stable across environments (P7).
+    # machine-independent corpus so the committed diff is stable across environments.
     "worktree_path": "<WORKTREE_PATH>",
+    # Seen on every cc-2.1.332 payload: a per-session /tmp scratchpad path that
+    # embeds the session UUID (not under $HOME, so the home-path pass misses it).
+    "scratchpad_dir": "<SCRATCHPAD_DIR>",
 }
 
 

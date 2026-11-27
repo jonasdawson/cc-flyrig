@@ -25,8 +25,21 @@ class Tmux:
     def __init__(self, runner: RunnerFn = _default_runner) -> None:
         self._run = runner
 
-    def new_session(self, name: str, cwd: str, command: list[str], env: dict[str, str] | None = None) -> None:
+    def new_session(
+        self,
+        name: str,
+        cwd: str,
+        command: list[str],
+        env: dict[str, str] | None = None,
+        *,
+        width: int | None = None,
+        height: int | None = None,
+    ) -> None:
         argv = ["tmux", "new-session", "-d", "-s", name, "-c", cwd]
+        if width is not None:
+            argv += ["-x", str(width)]
+        if height is not None:
+            argv += ["-y", str(height)]
         for key, value in (env or {}).items():
             argv += ["-e", f"{key}={value}"]
         argv += list(command)

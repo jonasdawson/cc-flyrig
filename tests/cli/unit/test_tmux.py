@@ -40,6 +40,19 @@ class TestNewSession:
         tmux.new_session("s1", "/cwd", ["claude", "--dangerously-skip-permissions"])
         assert calls[0][-2:] == ["claude", "--dangerously-skip-permissions"]
 
+    def test_new_session__width_and_height__adds_x_y_flags(self):
+        tmux, calls = _make_tmux()
+        tmux.new_session("s1", "/cwd", ["claude"], env={"FOO": "bar"}, width=200, height=50)
+        argv = calls[0]
+        assert argv[:9] == ["tmux", "new-session", "-d", "-s", "s1", "-c", "/cwd", "-x", "200"]
+        assert argv[9:11] == ["-y", "50"]
+        assert argv[-1] == "claude"  # the command still comes last
+
+    def test_new_session__no_size__no_x_y_flags(self):
+        tmux, calls = _make_tmux()
+        tmux.new_session("s1", "/cwd", ["claude"])
+        assert calls[0] == ["tmux", "new-session", "-d", "-s", "s1", "-c", "/cwd", "claude"]
+
 
 class TestHasSession:
     def test_has_session__returncode_zero__returns_true(self):

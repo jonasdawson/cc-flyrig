@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""Passive capture probe for the ``subagentStatusLine`` surface (Group 1, U2).
+"""Passive capture probe for the ``subagentStatusLine`` surface.
 
 Sibling to ``probe.py`` (this dir) — same stdlib-only, fail-safe, ``FLYRIG_*``-env-driven, temp-then-
-``os.replace`` spool discipline — but tagged ``SubagentStatusLine`` so consolidation (Group 2) can
+``os.replace`` spool discipline — but tagged ``SubagentStatusLine`` so consolidation can
 keep the two statusline surfaces' captures apart. Wired via the ``subagentStatusLine`` settings key.
 
 ``subagentStatusLine`` output is typed JSON-lines rows (``{"id","content"}`` per visible subagent),

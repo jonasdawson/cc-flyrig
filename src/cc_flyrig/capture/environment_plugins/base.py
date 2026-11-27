@@ -43,7 +43,7 @@ class RunContext(Protocol):
     """The run state and engine helpers an environment plugin may use from ``configure``."""
 
     sandbox: Path
-    native_settings_path: Path | None  # probe settings without the WorktreeCreate shim (P9)
+    native_settings_path: Path | None  # probe settings without the WorktreeCreate shim
 
     def sleep(self, seconds: float) -> None: ...
     def send_text(self, text: str) -> None: ...

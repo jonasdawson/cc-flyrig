@@ -33,7 +33,7 @@ def _run(stdin: str, env_extra: dict | None = None) -> subprocess.CompletedProce
 
 class TestWorktreeProbe:
     def test_worktree_probe__valid_payload__prints_abspath_and_spools(self, tmp_path):
-        """P7: stdout is one absolute existing dir path; an envelope is spooled with event = 'WorktreeCreate'."""
+        """stdout is one absolute existing dir path; an envelope is spooled with event = 'WorktreeCreate'."""
         spool = tmp_path / "spool"
         result = _run(
             json.dumps(_PAYLOAD),
@@ -54,7 +54,7 @@ class TestWorktreeProbe:
         assert env_data["run_id"] == "b1:wt"
 
     def test_worktree_probe__no_spool_env__still_prints_a_path(self):
-        """P7: without FLYRIG_SPOOL_DIR the shim still prints a valid abs path (contract never broken)."""
+        """Without FLYRIG_SPOOL_DIR the shim still prints a valid abs path (contract never broken)."""
         result = _run(json.dumps(_PAYLOAD))
 
         assert result.returncode == 0
@@ -63,7 +63,7 @@ class TestWorktreeProbe:
         assert Path(lines[0]).is_absolute()
 
     def test_worktree_probe__unwritable_root__still_prints_a_path(self, tmp_path):
-        """P7: if the preferred worktree root is unwritable, falls back to mkdtemp and still prints."""
+        """If the preferred worktree root is unwritable, falls back to mkdtemp and still prints."""
         bad_spool = "/proc/no-such/path/spool"
         result = _run(
             json.dumps(_PAYLOAD),
@@ -76,7 +76,7 @@ class TestWorktreeProbe:
         assert Path(lines[0]).is_absolute()
 
     def test_worktree_probe__empty_stdin__still_prints_a_path(self, tmp_path):
-        """P7: empty stdin (malformed / missing payload) never breaks the path contract."""
+        """Empty stdin (malformed / missing payload) never breaks the path contract."""
         spool = tmp_path / "spool"
         result = _run("", env_extra={"FLYRIG_SPOOL_DIR": str(spool)})
 

@@ -15,8 +15,7 @@ FAIL = "fail"
 UNOBSERVABLE = "unobservable"
 NOT_TESTED = "not-tested"
 
-# Every (event, field, variant) the IR claims to support — derived from the §Field inventory in
-# 20260619-feature__output-validation.md. Adding an entry here is a conscious act; auto-generation
+# Every (event, field, variant) the IR claims to support. Adding an entry here is a conscious act; auto-generation
 # from the schema is intentionally avoided (output inventory is about behavioral coverage, not shape
 # completeness).
 FIELD_INVENTORY: list[dict] = [

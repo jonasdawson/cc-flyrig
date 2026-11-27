@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Worktree capture shim for the cc-flyrig (P7 — maintainer capture tooling).
+"""Worktree capture shim for the cc-flyrig (maintainer capture tooling).
 
 Registered as a ``command`` hook on ``WorktreeCreate`` in place of the passive probe, which cannot
 be used here: the ``WorktreeCreate`` command hook MUST print an absolute directory path on stdout

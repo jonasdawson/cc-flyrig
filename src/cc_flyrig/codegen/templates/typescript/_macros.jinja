@@ -1,7 +1,7 @@
 {# TypeScript-target rendering macros: TypeNode -> TS type syntax, wire-name -> camelCase identifier,
    and the model block (string-literal `type` aliases, `interface`s, and parse*/serialize* functions).
    This file is the TypeScript contribution surface — the Python pipeline core is untouched. No
-   formatter runs on the output (feature Q4), so these macros emit clean TS directly (2-space indent).
+   formatter runs on the output, so these macros emit clean TS directly (2-space indent).
    An esbuild syntax check gates generation instead (toolchain.CHECKERS, "checker": "esbuild" in the
    runtime profile); tsc type-checks the output in tests and at release.
 
@@ -56,9 +56,9 @@ Record<string, unknown>
 {%- set is_dc = node.kind == "ref" and node.class_name in record_names -%}
 {%- set is_list_dc = node.kind == "array" and node.items.kind == "ref" and node.items.class_name in record_names -%}
 {%- if is_dc -%}
-{%- if field.required -%}parse{{ node.class_name }}({{ key }}){%- else -%}{{ key }} != null ? parse{{ node.class_name }}({{ key }}) : undefined{%- endif -%}
+{%- if field.required and not field.nullable -%}parse{{ node.class_name }}({{ key }}){%- else -%}{{ key }} != null ? parse{{ node.class_name }}({{ key }}) : {{ "null" if field.required else "undefined" }}{%- endif -%}
 {%- elif is_list_dc -%}
-{%- if field.required -%}{{ key }}.map(parse{{ node.items.class_name }}){%- else -%}{{ key }} != null ? {{ key }}.map(parse{{ node.items.class_name }}) : undefined{%- endif -%}
+{%- if field.required and not field.nullable -%}{{ key }}.map(parse{{ node.items.class_name }}){%- else -%}{{ key }} != null ? {{ key }}.map(parse{{ node.items.class_name }}) : {{ "null" if field.required else "undefined" }}{%- endif -%}
 {%- else -%}
 {%- if field.required -%}{{ key }}{%- else -%}{{ key }} ?? undefined{%- endif -%}
 {%- endif -%}
@@ -94,7 +94,8 @@ Record<string, unknown>
 {%- for field in spec.fields -%}
 {%- if field.doc -%}{%- set _ = ns.lines.append("  /** " ~ field.doc ~ " */") -%}{%- endif -%}
 {%- set opt = "" if field.required else "?" -%}
-{%- set _ = ns.lines.append("  " ~ lang_name(field.json_name) ~ opt ~ ": " ~ render_type(field.type_node) ~ ";") -%}
+{%- set nullable = " | null" if field.required and field.nullable else "" -%}
+{%- set _ = ns.lines.append("  " ~ lang_name(field.json_name) ~ opt ~ ": " ~ render_type(field.type_node) ~ nullable ~ ";") -%}
 {%- endfor -%}
 {%- set _ = ns.lines.append("}") -%}
 {%- endif -%}
@@ -123,7 +124,10 @@ Record<string, unknown>
 {%- for field in spec.fields -%}
 {%- set key = '"' ~ field.json_name ~ '"' -%}
 {%- if field.required -%}
-{%- set _ = ns.lines.append("  result[" ~ key ~ "] = " ~ serialize_value(field, record_names) ~ ";") -%}
+{%- set attr = "obj." ~ lang_name(field.json_name) -%}
+{%- set value = serialize_value(field, record_names) -%}
+{%- if field.nullable and value != attr -%}{%- set value = attr ~ " != null ? " ~ value ~ " : null" -%}{%- endif -%}
+{%- set _ = ns.lines.append("  result[" ~ key ~ "] = " ~ value ~ ";") -%}
 {%- else -%}
 {%- set _ = ns.lines.append("  if (obj." ~ lang_name(field.json_name) ~ " !== undefined) {") -%}
 {%- set _ = ns.lines.append("    result[" ~ key ~ "] = " ~ serialize_value(field, record_names) ~ ";") -%}

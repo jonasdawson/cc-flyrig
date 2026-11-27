@@ -1,4 +1,4 @@
-"""Context manager that runs a rate-limit fixture HTTP server on a daemon thread (P4)."""
+"""Context manager that runs a rate-limit fixture HTTP server on a daemon thread."""
 
 from http.server import HTTPServer
 from threading import Thread

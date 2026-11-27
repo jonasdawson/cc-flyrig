@@ -1,4 +1,4 @@
-"""P9: seed the sandbox as a real git repo and select native (no-shim) probe settings.
+"""Seed the sandbox as a real git repo and select native (no-shim) probe settings.
 
 A real repo lets CC's native git worktree machinery run (which fires ``WorktreeRemove``); the native
 settings omit the ``WorktreeCreate`` shim so #37611 (a custom hook suppressing removal) is not in play.

@@ -75,7 +75,9 @@ dict
 {%- elif is_list_enum -%}{%- set convert = "[" ~ node.items.class_name ~ "(_v) for _v in data[" ~ key ~ "]]" -%}
 {%- else -%}{%- set convert = "[" ~ node.items.class_name ~ ".from_dict(_v) for _v in data[" ~ key ~ "]]" -%}
 {%- endif -%}
-{%- if field.required -%}{{ convert }}{%- else -%}{{ convert }} if data.get({{ key }}) is not None else None{%- endif -%}
+{%- if field.required and not field.nullable -%}{{ convert }}
+{%- elif field.required -%}{{ convert }} if data[{{ key }}] is not None else None
+{%- else -%}{{ convert }} if data.get({{ key }}) is not None else None{%- endif -%}
 {%- endif -%}
 {% endmacro %}
 
@@ -123,7 +125,10 @@ dict
 {%- for field in spec.fields -%}
 {%- set key = '"' ~ field.json_name ~ '"' -%}
 {%- if field.required -%}
-{%- set _ = ns.lines.append("        result[" ~ key ~ "] = " ~ to_value(field, enum_names, record_names)) -%}
+{%- set attr = "self." ~ lang_name(field.json_name) -%}
+{%- set value = to_value(field, enum_names, record_names) -%}
+{%- if field.nullable and value != attr -%}{%- set value = value ~ " if " ~ attr ~ " is not None else None" -%}{%- endif -%}
+{%- set _ = ns.lines.append("        result[" ~ key ~ "] = " ~ value) -%}
 {%- else -%}
 {%- set _ = ns.lines.append("        if self." ~ lang_name(field.json_name) ~ " is not None:") -%}
 {%- set _ = ns.lines.append("            result[" ~ key ~ "] = " ~ to_value(field, enum_names, record_names)) -%}
@@ -141,7 +146,8 @@ dict
 {%- endif -%}
 {%- for field in spec.fields -%}
 {%- if field.required -%}
-{%- set _ = ns.lines.append("    " ~ lang_name(field.json_name) ~ ": " ~ render_type(field.type_node)) -%}
+{%- set nullable = " | None" if field.nullable else "" -%}
+{%- set _ = ns.lines.append("    " ~ lang_name(field.json_name) ~ ": " ~ render_type(field.type_node) ~ nullable) -%}
 {%- else -%}
 {%- set _ = ns.lines.append("    " ~ lang_name(field.json_name) ~ ": " ~ render_type(field.type_node) ~ " | None = None") -%}
 {%- endif -%}

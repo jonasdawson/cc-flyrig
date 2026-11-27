@@ -91,7 +91,7 @@ def provision(
 
     install = ClaudeInstall(bin=str(bin_path), version=version)
 
-    # U3 — pin assertion: guard against silent auto-updates, wrong-prefix
+    # Pin assertion: guard against silent auto-updates, wrong-prefix
     # resolutions, or registry surprises before the expensive battery runs.
     detected = detect_cc_version(install.bin)
     if detected != version:

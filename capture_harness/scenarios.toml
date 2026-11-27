@@ -10,25 +10,30 @@
 # (e.g. WorktreeRemove, a tracked CC bug — see that scenario).
 
 [meta]
-description = "CC hooks capture battery (cc-2.1.177)"
-# P6: battery-wide defaults — Haiku 4.5 + low effort (cheap/fast); orchestration-heavy scenarios
+description = "CC hooks capture battery (cc-2.1.332)"
+# Battery-wide defaults — Haiku 4.5 + low effort (cheap/fast); orchestration-heavy scenarios
 # override launch.model = "sonnet". Haiku's 200k window also enables the PostCompact auto-compaction
 # path.
 default_model = "haiku"
 default_effort = "low"
+# Battery-wide --permission-mode (since cc-2.1.332). CC 2.1.332 starts a mode-less session in
+# auto mode, so every scenario's mode is pinned here instead of inherited from the binary/account.
+# Scenarios that need another mode to prove their capture set launch.permission_mode explicitly
+# (permission-request = default, permission-denied = auto).
+default_permission_mode = "bypassPermissions"
 
 [run.settings.standard]
-# P7: WorktreeCreate requires a stdout-printing shim — a passive probe would break worktree
+# WorktreeCreate requires a stdout-printing shim — a passive probe would break worktree
 # creation. worktree_probe.py satisfies the path-print requirement; all other events use probe.py.
 default_script = "probe.py"
 [run.settings.standard.script_overrides]
 WorktreeCreate = "worktree_probe.py"
 [run.settings.standard.matchers]
-# P5: FileChanged requires a matcher; watched.txt is the watch target seeded in each sandbox.
+# FileChanged requires a matcher; watched.txt is the watch target seeded in each sandbox.
 FileChanged = "watched.txt"
 
 [run.settings.native]
-# P9: used by git_repo scenarios where CC manages WorktreeCreate natively (causes WorktreeRemove
+# Used by git_repo scenarios where CC manages WorktreeCreate natively (causes WorktreeRemove
 # to fire on subagent teardown). WorktreeCreate excluded so CC uses its own git worktree machinery.
 default_script = "probe.py"
 exclude_events = ["WorktreeCreate"]
@@ -265,7 +270,7 @@ interactions = [{ wait_for = "Stop", send_keys = ["/compact", "Enter"] }]
 complete_on = "PreCompact"
 timeout_s = 300
 
-# --- Group 2: PostCompact (two scenarios) --------------------------------------------------------
+# --- PostCompact (two scenarios) -----------------------------------------------------------------
 
 # Primary path: cap the effective context window low and exceed it in one Read so CC auto-compacts
 # (trigger: "auto"). Window cap (15000) × trigger pct (50) => auto-compact at ~7500 tokens; the
@@ -293,7 +298,7 @@ timeout_s = 180
 
 # Manual variant: three serialised Read turns produce enough messages for /compact to succeed
 # (trigger: "manual"). DISABLE_AUTO_COMPACT pins the trigger to manual on tiny fixtures.
-# Exercises P1 (occurrence-count wait) so turns serialise correctly.
+# Exercises the occurrence-count wait so turns serialise correctly.
 [[scenario]]
 id = "compact-post-manual"
 prompt = "Use the Read tool on file1.txt, then stop. Do nothing else."
@@ -319,9 +324,9 @@ interactions = [
 complete_on = "PostCompact"
 timeout_s = 360
 
-# --- Group 2: StopFailure ------------------------------------------------------------------------
+# --- StopFailure ---------------------------------------------------------------------------------
 
-# The ratelimit-429 fixture server (P4) redirects all outbound API calls to a local always-429
+# The ratelimit-429 fixture server redirects all outbound API calls to a local always-429
 # endpoint, so CC hits its rate-limit error path regardless of what credentials are stored in the
 # devcontainer. ANTHROPIC_BASE_URL is auto-injected by the orchestrator when the fixture_server
 # capability is set.
@@ -341,7 +346,7 @@ timeout_s = 180
 [scenario.environment_plugins]
 fixture_server = "ratelimit-429"
 
-# --- Group 2: TeammateIdle -----------------------------------------------------------------------
+# --- TeammateIdle --------------------------------------------------------------------------------
 
 # Agent teams are gated on CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1 (CC >= 2.1.32). In-process mode
 # keeps all sessions inside the harness's single tmux session. Whether TeammateIdle fires under
@@ -362,10 +367,10 @@ env = { CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS = "1", CLAUDE_TEAMMATE_MODE = "in-p
 complete_on = "TeammateIdle"
 timeout_s = 300
 
-# --- Group 2: ConfigChange -----------------------------------------------------------------------
+# --- ConfigChange --------------------------------------------------------------------------------
 
 # Seed .claude/settings.json so CC registers a watcher at session start. After the first Stop,
-# P3 rewrites the file in-place (MODIFY event, not rename), CC detects the change, fires ConfigChange.
+# write_sandbox_file rewrites the file in-place (MODIFY event, not rename), CC detects the change, fires ConfigChange.
 # send_keys = [] means this interaction's only action is the file write.
 [[scenario]]
 id = "config-change"
@@ -384,10 +389,10 @@ interactions = [
 complete_on = "ConfigChange"
 timeout_s = 120
 
-# --- Group 2: FileChanged ------------------------------------------------------------------------
+# --- FileChanged ---------------------------------------------------------------------------------
 
-# P5 wires the probe on FileChanged with matcher = "watched.txt", so CC watches watched.txt in
-# the sandbox from session start. After the first Stop, P3 overwrites it in-place (MODIFY event),
+# The probe is wired on FileChanged with matcher = "watched.txt", so CC watches watched.txt in
+# the sandbox from session start. After the first Stop, write_sandbox_file overwrites it in-place (MODIFY event),
 # CC's watcher fires FileChanged (file_path absolute, event: "change"), drive.complete_on catches it.
 [[scenario]]
 id = "file-changed"
@@ -406,9 +411,9 @@ interactions = [
 complete_on = "FileChanged"
 timeout_s = 60
 
-# --- Group 3: WorktreeCreate ---------------------------------------------------------------------
+# --- WorktreeCreate ------------------------------------------------------------------------------
 
-# P7: the worktree_probe.py shim is wired on WorktreeCreate (via worktree_probe_path in
+# The worktree_probe.py shim is wired on WorktreeCreate (via worktree_probe_path in
 # build_probe_settings). The shim creates the worktree dir and prints its absolute path (the
 # CC stdout contract), then best-effort spools the payload. The Agent tool with
 # isolation: "worktree" triggers WorktreeCreate before the subagent runs.
@@ -425,15 +430,15 @@ model = "sonnet"
 [scenario.drive]
 timeout_s = 300
 
-# --- Group 3: Elicitation + ElicitationResult ----------------------------------------------------
+# --- Elicitation + ElicitationResult -------------------------------------------------------------
 
-# P8: mcp_elicit_server.py is a stdlib MCP JSON-RPC 2.0 stdio server that exposes probe_elicit.
+# mcp_elicit_server.py is a stdlib MCP JSON-RPC 2.0 stdio server that exposes probe_elicit.
 # When the model calls it, the server sends elicitation/create (single "value" field schema),
 # causing CC to fire Elicitation and show the TUI form. The passive probe on Elicitation spools
 # the payload; wait_for = "Elicitation" resolves off the spool, then send_keys fills and submits
 # the form. CC fires ElicitationResult, the server returns its tool result, drive.complete_on catches
-# it. The mcp_server capability triggers --mcp-config / --strict-mcp-config per-scenario (P8).
-# send_keys is a tuning parameter verified at the run (same as Group 2's compaction tuning).
+# it. The mcp_server capability triggers --mcp-config / --strict-mcp-config per-scenario.
+# send_keys is a tuning parameter verified at the run (same as the compaction scenarios' tuning).
 [[scenario]]
 id = "elicitation"
 prompt = "Use the probe_elicit tool from the elicit-probe MCP server. When the form appears, fill in any value and submit it. Then stop."
@@ -445,20 +450,24 @@ method = "interactive"
 permission_mode = "bypassPermissions"
 model = "sonnet"
 [scenario.drive]
+# cc-2.1.332 form: Tab only confirms the field (focus stays on it); Enter confirms it AND moves focus
+# to Accept, which then needs its own Enter. That press waits for the focused-button marker, since
+# keys sent mid-re-render can be dropped (see directory-added).
 interactions = [
-  { wait_for = "Elicitation", send_keys = ["capture-value", "Tab", "Enter"] },
+  { wait_for = "Elicitation", send_keys = ["capture-value", "Enter"] },
+  { wait_for = "❯ Accept", send_keys = ["Enter"] },
 ]
 complete_on = "ElicitationResult"
 timeout_s = 180
 [scenario.environment_plugins]
 mcp_server = "elicit-probe"
 
-# --- Group 4: TaskCreated + TaskCompleted (agent-teams task list) ---------------------------------
+# --- TaskCreated + TaskCompleted (agent-teams task list) ------------------------------------------
 # Rides the agent-teams infrastructure proven by teammate-idle: in-process mode keeps all sessions in
 # the harness's tmux session, the env flag is inherited by the teammate, and the events fire in the
 # LEAD process under the lead's --settings probe wiring. The lead's TaskCreate tool fires TaskCreated;
 # the teammate's TaskUpdate(completed) — or finishing its turn with the task in-progress — fires
-# TaskCompleted. sonnet per P6 (orchestration-heavy). drive.complete_on waits on the later event so
+# TaskCompleted. sonnet because it is orchestration-heavy. drive.complete_on waits on the later event so
 # both land before teardown; a no-show surfaces as expected-but-missing in the coverage report.
 [[scenario]]
 id = "task-lifecycle"
@@ -475,7 +484,7 @@ env = { CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS = "1", CLAUDE_TEAMMATE_MODE = "in-p
 complete_on = "TaskCompleted"
 timeout_s = 360
 
-# --- Group 4: PermissionDenied (auto-mode classifier, env-exfiltration trigger) ------------------
+# --- PermissionDenied (auto-mode classifier, env-exfiltration trigger) ---------------------------
 # DOC: fires ONLY in auto mode when the classifier denies a tool call (HOOK_EVENTS.md:1887).
 # GATE-1: auto mode requires Sonnet/Opus — Haiku (battery default) is unsupported, so model=sonnet
 # is mandatory (never drop this; setting permission_mode=auto on Haiku silently does nothing).
@@ -496,17 +505,17 @@ model = "sonnet"
 complete_on = "PermissionDenied"
 timeout_s = 120
 
-# --- WorktreeRemove (Option B — --worktree session + P10/P12 interactive remove) ------------------
+# --- WorktreeRemove (--worktree session + interactive remove) ------------------------------------
 # CONFIRMED BUG (cc-2.1.168 + cc-2.1.177, manually verified): the WorktreeRemove hook never fires via
 # any path. (1) A custom WorktreeCreate shim suppresses the removal flow (#37611). (2) Subagent
 # isolation:worktree finish: deferred sweep, no hook. (3) Model-issued `git worktree remove` bypasses
 # dispatch. (4) --worktree exit (this scenario): dialog navigated + worktree removed, hook still not
 # called. This scenario keeps trying so the probe activates if CC fixes dispatch; until then the event
 # surfaces as expected-but-missing in the coverage report — a tracked anomaly, not a silent gap.
-# Option B mechanics: launch with --worktree so the session itself IS the worktree context; the
-# git_init capability seeds a real git repo (required for `git worktree add`); no WorktreeCreate shim
-# (native settings) so #37611 is not in play. P10 (3x): CC exits silently in tmux mode (#39281:
-# --worktree --tmux suppresses hooks); P12 prepends `env -u TMUX -u TMUX_PANE` to CC's argv. Dialog
+# Mechanics: launch with --worktree so the session itself IS the worktree context; the git_init
+# capability seeds a real git repo (required for `git worktree add`); no WorktreeCreate shim (native
+# settings) so #37611 is not in play. CC exits silently in tmux mode (#39281: --worktree --tmux
+# suppresses hooks), so the worktree plugin prepends `env -u TMUX -u TMUX_PANE` to CC's argv. Dialog
 # confirmed: "❯ 1. Keep worktree / 2. Remove worktree"; prompt writes probe.txt so the worktree is
 # dirty (dirty = dialog shown; clean = auto-remove without hook); teardown sleeps 3s then sends
 # "2"+Enter (the worktree_remove_on_exit capability).
@@ -542,5 +551,63 @@ prompt = "/add-dir /tmp"
 events = ["DirectoryAdded"]
 method = "side-effect"
 [scenario.drive]
+# cc-2.1.332 shows two dialogs. First a trust prompt for a never-worked-in directory, default
+# "No, leave it out"; it renders unfocused for ~0.5 s and drops keys sent before the focus marker,
+# so each key waits for the focused state. Then "Add directory to workspace", default "1. Yes, for
+# this session".
+interactions = [
+  { wait_for = "❯ No, leave it out", send_keys = ["Down"] },
+  { wait_for = "❯ Yes, add it", send_keys = ["Enter"] },
+  { wait_for = "❯ 1. Yes, for this session", send_keys = ["Enter"] },
+]
 complete_on = "DirectoryAdded"
 timeout_s = 60
+
+# --- PreSkillShellCommand (new in CC 2.1.332) ----------------------------------------------------
+
+# Fires before an *injected* shell command -- !`cmd` (or a ```! block) in a skill or command file --
+# runs while the skill loads. PreToolUse does NOT fire for it. Two invocations cover both invoked_by
+# values: typing /probe ("user"), then asking the model to load it via the Skill tool ("claude").
+# The trailing empty interaction waits for the SECOND Stop (the wait is occurrence-count based), because complete_on is
+# presence-based and the first Stop is already in the spool.
+[[scenario]]
+id = "skill-shell-command"
+prompt = "/probe"
+[scenario.expect]
+events = ["PreSkillShellCommand"]
+method = "side-effect"
+[scenario.setup]
+sandbox_files = [
+  { path = ".claude/skills/probe/SKILL.md", content = "---\nname: probe\ndescription: Flyrig probe skill. Use only when explicitly asked to run the probe skill.\n---\nShell output: !`echo flyrig-skill-shell`\n\nReply with exactly the word: probed.\n" },
+]
+[scenario.drive]
+interactions = [
+  { wait_for = "Stop", send_keys = ["Use the Skill tool to run the probe skill, then stop. Do nothing else.", "Enter"] },
+  { wait_for = "Stop", send_keys = [] },
+]
+timeout_s = 120
+
+# --- PreModelSwitch / PostModelSwitch (new in CC 2.1.251; first baselined at 2.1.332) -------------
+
+# /model fires PreModelSwitch, then -- when the conversation cache is warm and the switch is costly
+# -- shows a "Switch model?" confirmation; PostModelSwitch fires once it is confirmed. One reply turn
+# first warms the cache so the payload's cost fields are realistic. If a CC release stops showing
+# the dialog, the second step's pane wait times out (45 s cap) and its Enter lands on an empty
+# prompt, which is harmless.
+# CAUTION: /model persists the new model into the *user* ~/.claude/settings.json; the capture
+# CLI's preserve_user_settings guard restores it after the run.
+[[scenario]]
+id = "model-switch"
+prompt = "Reply with exactly the word: done. Do nothing else."
+[scenario.expect]
+events = ["PreModelSwitch", "PostModelSwitch"]
+method = "interactive"
+[scenario.launch]
+model = "haiku"
+[scenario.drive]
+interactions = [
+  { wait_for = "Stop", send_keys = ["/model sonnet", "Enter"] },
+  { wait_for = "Switch model?", send_keys = ["Enter"] },
+]
+complete_on = "PostModelSwitch"
+timeout_s = 120

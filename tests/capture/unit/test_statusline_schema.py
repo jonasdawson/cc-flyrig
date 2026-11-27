@@ -1,4 +1,4 @@
-"""Validation tests for the statusline IR schema (statusline.schema.json, Group 2 U3)."""
+"""Validation tests for the statusline IR schema (statusline.schema.json)."""
 
 import json
 from pathlib import Path
@@ -99,7 +99,7 @@ class TestStatuslineSchema:
         assert statusline_schema["$schema"] == "https://json-schema.org/draft/2020-12/schema"
 
     def test_statusline_schema__no_hook_common_input_fields__not_a_hook_event(self, statusline_schema):
-        # Invariant: statusline is its own namespace, never a 31st hook event (ADR 0010).
+        # Invariant: statusline is its own namespace, never a 31st hook event.
         assert "CommonInput" not in statusline_schema["$defs"]
         assert "hook_event_name" not in statusline_schema["$defs"]["StatusLineInput"]["properties"]
 
@@ -122,7 +122,7 @@ class TestStatusLineInput:
         _expect_invalid(statusline_schema, "StatusLineInput", bad)
 
     def test_status_line_input__context_window_current_usage_null__validates(self, statusline_schema):
-        # Observed on the wire before the first API response — the U1 spike's first StatusLine sample.
+        # Observed on the wire before the first API response — the first captured StatusLine sample.
         payload = {
             **_REAL_STATUS_LINE_PAYLOAD,
             "context_window": {
@@ -156,7 +156,7 @@ class TestSubagentStatusLineInput:
         _expect_invalid(statusline_schema, "SubagentStatusLineInput", bad)
 
     def test_subagent_status_line_input__task_info_name_field_optional__validates_without_it(self, statusline_schema):
-        # `name` is documented by the reference but was never observed by the U1 spike.
+        # `name` is documented by the reference but was never observed in captures.
         _validate(statusline_schema, "SubagentStatusLineInput", _REAL_SUBAGENT_STATUS_LINE_PAYLOAD)
 
     def test_subagent_status_line_input__task_info_with_name__validates(self, statusline_schema):

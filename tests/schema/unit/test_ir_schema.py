@@ -338,7 +338,7 @@ class TestPermissionRequestOutput:
 
 
 class TestReconciledShapes:
-    """Shapes corrected against real captured payloads (ADR 0007)."""
+    """Shapes corrected against real captured payloads."""
 
     def test_session_start_input__init_only_without_model__validates(self, schema):
         # The --init-only launch emits a SessionStart with no `model`; `model` is therefore optional.

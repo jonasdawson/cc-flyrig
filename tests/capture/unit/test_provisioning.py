@@ -1,4 +1,4 @@
-"""Tests for cc_flyrig.capture.provisioning (U1–U3) and the CLI surface (U2)."""
+"""Tests for cc_flyrig.capture.provisioning and the CLI surface."""
 
 from pathlib import Path
 from types import SimpleNamespace

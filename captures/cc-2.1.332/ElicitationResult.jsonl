@@ -1,0 +1,1 @@
+{"action": "accept", "content": {"value": "capture-value"}, "cwd": "/tmp/flyrig-sandboxes/20261127T131936/elicitation", "hook_event_name": "ElicitationResult", "mcp_server_name": "elicit-probe", "mode": "form", "prompt_id": "520d7ff9-c744-449d-8042-887e78b7b2a3", "scratchpad_dir": "<SCRATCHPAD_DIR>", "session_id": "<SESSION_ID>", "transcript_path": "<TRANSCRIPT_PATH>"}

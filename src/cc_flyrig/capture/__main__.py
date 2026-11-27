@@ -39,7 +39,7 @@ from ..schema import drift_detector
 from . import coverage_report
 from .environment_plugins import build_registry
 from .event_families import EVENT_FAMILIES, HOOKS_FAMILY, STATUSLINE_FAMILY
-from .orchestrator.menu_scanner import scan_hooks_menu
+from .orchestrator.menu_scanner import MenuScanError, scan_hooks_menu
 from .orchestrator.scenario_runner import (
     CaptureError,
     CapturePaths,
@@ -64,6 +64,7 @@ from .scenario_manifest import (
 from .spool_consolidator import _load_envelopes, consolidate
 from .util.cc_version import detect_cc_version
 from .util.payload_scrubber import scrub
+from .util.user_settings_guard import preserve_user_settings
 
 
 def _build_env_plugins(s: "OutputScenario", registry: dict) -> EnvironmentPlugins:
@@ -268,8 +269,21 @@ def _resolve_install(args) -> ClaudeInstall:
 
 def _run_inputs(args, install: ClaudeInstall) -> int:
     cc_version = detect_cc_version(install.bin)
-    events, raw = scan_hooks_menu(claude_bin=install.bin, sandbox_root=Path(args.sandbox))
     cov_dir = Path(args.captures) / f"cc-{cc_version}"
+    try:
+        events, raw = scan_hooks_menu(claude_bin=install.bin, sandbox_root=Path(args.sandbox))
+    except MenuScanError as e:
+        # Never write a hooks_menu.json from a broken scan, so it can't reach the drift check or
+        # the CI gate; keep the last screen for diagnosis instead.
+        cov_dir.mkdir(parents=True, exist_ok=True)
+        dump = cov_dir / "hooks_menu.txt"
+        dump.write_text(str(scrub(e.pane)), encoding="utf-8")
+        print(
+            f"aborted: could not scan the /hooks menu ({e}). Last screen saved to {dump}; the TUI "
+            "markers in capture/orchestrator/menu_scanner.py likely need updating for this CC version.",
+            file=sys.stderr,
+        )
+        return 1
     _write_menu_artifacts(events, raw, cov_dir, cc_version)
     print(f"scanned /hooks: {len(events)} events; wrote {cov_dir / 'hooks_menu.json'}")
     findings = drift_detector.check_documented_events(
@@ -320,7 +334,8 @@ def _run_inputs(args, install: ClaudeInstall) -> int:
 
 
 def _cmd_inputs(args) -> int:
-    return _run_inputs(args, _resolve_install(args))
+    with preserve_user_settings():  # a driven session may persist into user settings
+        return _run_inputs(args, _resolve_install(args))
 
 
 def _render_hooks_menu(cov_dir: Path, cc_version: str) -> None:
@@ -558,7 +573,8 @@ def _run_outputs(args, install: ClaudeInstall) -> int:
 
 
 def _cmd_outputs(args) -> int:
-    return _run_outputs(args, _resolve_install(args))
+    with preserve_user_settings():  # a driven session may persist into user settings
+        return _run_outputs(args, _resolve_install(args))
 
 
 def partition_scenarios(
@@ -597,7 +613,12 @@ def _read_scenario_ids(manifest_path: Path, output_scenarios_path: Path) -> tupl
 
 def _cmd_all(args) -> int:
     install = _resolve_install(args)
+    # One snapshot shared by both batteries; the inner _run_inputs/_run_outputs aren't wrapped again.
+    with preserve_user_settings():  # a driven session may persist into user settings
+        return _run_all(args, install)
 
+
+def _run_all(args, install: ClaudeInstall) -> int:
     requested = list(args.scenario or [])
     output_scenarios_path = Path(args.output_scenarios or DEFAULT_OUTPUT_SCENARIOS)
     input_ids, output_ids = _read_scenario_ids(Path(args.manifest), output_scenarios_path)

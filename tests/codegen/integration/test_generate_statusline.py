@@ -1,4 +1,4 @@
-"""Tests for the statusline event family (ADR 0010): CLI event-derived family selection, both
+"""Tests for the statusline event family: CLI event-derived family selection, both
 codegen paths, and the additive regression check that plain hook generation is unaffected.
 
 Mirrors ``test_generate.py``'s golden-file + round-trip pattern, scoped to the two statusline-family
@@ -107,7 +107,7 @@ class TestGenerateStatusline:
 
 
 class TestStatusLineNoOutputModel:
-    """D3: statusLine is inputs-only — no output model, no decision, just text out."""
+    """StatusLine is inputs-only — no output model, no decision, just text out."""
 
     @pytest.fixture(scope="class")
     @classmethod
@@ -115,8 +115,8 @@ class TestStatusLineNoOutputModel:
         return _load_module(_golden("StatusLine") / "_harness.py", "status_line_harness_pat")
 
     def test_harness__input_class_named_status_line_data(self, harness):
-        # The golden statusline_types.py names the model StatusLineData; the runtime profile overrides the
-        # default StatusLineInput class name to match (feature doc's dogfood target).
+        # The golden names the model StatusLineData; the runtime profile overrides the default
+        # StatusLineInput class name to match.
         assert harness.StatusLineData is not None
 
     def test_harness__has_no_output_class(self, harness):
@@ -138,7 +138,7 @@ class TestStatusLineNoOutputModel:
 
 
 class TestSubagentStatusLineJsonLinesRows:
-    """subagentStatusLine emits a typed output-row model, one JSON object per line (D5)."""
+    """subagentStatusLine emits a typed output-row model, one JSON object per line."""
 
     @pytest.fixture(scope="class")
     @classmethod
@@ -271,7 +271,7 @@ class TestCliEventDerivedFamily:
         assert "unknown event" in capsys.readouterr().err
 
     def test_main__event_status_line_no_schema_for_version__error_mentions_all_families(self, tmp_path, capsys):
-        # The event search spans every registered family (ADR 0010), not just one -- the error
+        # The event search spans every registered family, not just one -- the error
         # message must reflect that, not read as if only "hooks" (or only "statusline") was tried.
         argv = [
             "generate",

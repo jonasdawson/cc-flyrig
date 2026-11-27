@@ -55,7 +55,7 @@ def _classify(manifest: Manifest, counts: dict[str, int]) -> list[StatuslineEven
         if count > 0:
             status = OBSERVED
         elif event == "StatusLine":
-            # StatusLine always fires per the battery design (D2) — never "not attempted".
+            # StatusLine always fires per the battery design — never "not attempted".
             status = MISSING
         elif subagent_scenario_ran:
             status = MISSING

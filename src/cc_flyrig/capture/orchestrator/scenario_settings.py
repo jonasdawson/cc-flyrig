@@ -31,8 +31,8 @@ def write_scenario_settings(
 ) -> Path:
     """Render hook (and, optionally, statusline-family) entries to a Claude Code settings JSON file.
 
-    When ``statusline_entries`` is empty (the default), the emitted document is byte-identical to
-    the hooks-only shape (D5 back-compat gate): just ``{"hooks": {...}}``, with no extra keys.
+    The emitted document is ``hooks`` + ``skipDangerousModePermissionPrompt`` (since cc-2.1.332),
+    plus the statusline-family keys when ``statusline_entries`` is given.
     """
     out = Path(path)
     out.parent.mkdir(parents=True, exist_ok=True)
@@ -54,7 +54,10 @@ def _build_scenario_settings(
             hooks[entry.event] = [{"matcher": entry.matcher, "hooks": [hook]}]
         else:
             hooks[entry.event] = [{"hooks": [hook]}]
-    document: dict = {"hooks": hooks}
+    # cc-2.1.332 shows a launch-time Bypass Permissions warning (default-highlighted "No, exit") unless
+    # this is set. The maintainer's own copy lives in *user* settings, which --setting-sources project
+    # excludes, so every generated settings file carries it. Harmless in non-bypass scenarios.
+    document: dict = {"hooks": hooks, "skipDangerousModePermissionPrompt": True}
     for entry in statusline_entries:
         command: dict = {"type": "command", "command": entry.command}
         if entry.settings_key == "subagentStatusLine":

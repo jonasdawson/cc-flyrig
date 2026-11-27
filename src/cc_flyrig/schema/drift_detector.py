@@ -136,7 +136,9 @@ def check_captures(
     return findings
 
 
-def check_documented_events(menu_events: Iterable[str], *, source: Path, cc_version: str | None = None) -> list[Finding]:
+def check_documented_events(
+    menu_events: Iterable[str], *, source: Path, cc_version: str | None = None
+) -> list[Finding]:
     """Compare the ``/hooks`` menu's event set against the IR roster (``roster.EVENTS``).
 
     Returns blocking ``cc-hooks-skill-drift`` findings for events documented by the binary but absent
@@ -169,7 +171,7 @@ def check_documented_fields(schema: dict, events: list[dict], *, source: Path) -
 
     For each entry, report a menu-named field that is **absent** from the IR's ``<Event>Input`` /
     ``<Event>Output`` props — additive drift the binary documents but the IR lacks. Directional by
-    design (feature D6): the reverse is *not* reported, since the IR legitimately carries far more
+    design: the reverse is *not* reported, since the IR legitimately carries far more
     (the whole ``CommonInput`` envelope, plus everything the menu states only as prose). Emits
     non-blocking ``cc-hooks-skill-advisory`` findings.
     """

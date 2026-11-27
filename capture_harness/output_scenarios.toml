@@ -4,6 +4,8 @@
 # Optional fields:
 #   permission_mode   str   "bypassPermissions" | "default" | "auto"  (default: bypassPermissions)
 #   timeout_s         float seconds before the session is killed        (default: 60)
+#                           a scenario completes on Stop; one whose prompt produces no Stop (a bare
+#                           slash command, e.g. "/model sonnet") always runs the full timeout_s
 #   canary            str   string that must appear in pane for pane-contains assertions
 #   followup_prompt   str   second prompt sent after first Stop
 #   followup_action   str   "write-watched-path" — write watched_path after Stop
@@ -75,6 +77,38 @@ note = "verify PostToolUse.tool_input.file_path == /etc/os-release in spool (man
 
 [[scenarios.fields]]
 field = "hookSpecificOutput.updatedInput"
+
+[[scenarios]]
+id = "premodelswitch-allow"
+description = "PreModelSwitch allow: /model switch applies without confirmation; PostModelSwitch fires"
+prompt = "/model sonnet"
+model = "haiku"
+target_event = "PreModelSwitch"
+fixture_decision = '{"hookSpecificOutput": {"hookEventName": "PreModelSwitch", "permissionDecision": "allow"}}'
+probe_event = "PostModelSwitch"
+assertion_type = "spool-present"
+timeout_s = 30
+note = "/model emits no Stop, so the run always lasts timeout_s; pairs with premodelswitch-deny to prove the switch is actually attempted"
+
+[[scenarios.fields]]
+field = "hookSpecificOutput.permissionDecision"
+variant = "allow"
+
+[[scenarios]]
+id = "premodelswitch-deny"
+description = "PreModelSwitch deny: /model switch cancelled; PostModelSwitch absent"
+prompt = "/model sonnet"
+model = "haiku"
+target_event = "PreModelSwitch"
+fixture_decision = '{"hookSpecificOutput": {"hookEventName": "PreModelSwitch", "permissionDecision": "deny", "permissionDecisionReason": "flyrig output battery"}}'
+probe_event = "PostModelSwitch"
+assertion_type = "spool-absent"
+timeout_s = 30
+note = "spool-absent alone would also pass if /model never ran; premodelswitch-allow is the control"
+
+[[scenarios.fields]]
+field = "hookSpecificOutput.permissionDecision"
+variant = "deny"
 
 [[scenarios]]
 id = "permrequest-deny"
@@ -346,7 +380,7 @@ probe_event = "Stop"
 assertion_type = "pane-contains"
 canary = "feedback"
 timeout_s = 60
-note = "requires agent-teams environment (P2 capability); unobservable outside that env"
+note = "requires agent-teams environment; unobservable outside that env"
 
 [[scenarios.fields]]
 field = "exit code 2"

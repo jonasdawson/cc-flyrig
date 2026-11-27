@@ -121,7 +121,7 @@ class TestCcVersionScoping:
 class TestSurfaceSubdirRegistry:
     """A second surface (e.g. statusline) lives in cc-<version>/<subdir>/ beside the hooks-style
     top-level files; the ``subdir`` kwarg widens count_payloads/check_captures to reach it without
-    touching the default (hooks) path, per U5's {artifact -> schema} registry."""
+    touching the default (hooks) path, per the {artifact -> schema} registry."""
 
     def test_count_payloads__subdir_given__counts_only_nested_tree(self, tmp_path):
         cdir = tmp_path / "cc-test"

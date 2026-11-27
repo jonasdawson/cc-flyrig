@@ -199,24 +199,72 @@ def _session_name(batch_id: str, scenario_id: str) -> str:
 
 # Substrings used to read the interactive TUI state from a captured pane. These track the CC TUI and
 # may need updating on a new release (the orchestrator is a maintainer tool, not a shipped artifact).
-_READY_MARKER = "for shortcuts"  # the input-box footer; present once the prompt is ready
+#
+# Input-box footer = the prompt is ready. Without a statusline, manual ("default") mode shows
+# "? for shortcuts"; with one (every capture scenario configures the statusline probe) it shows only
+# "⏸ manual mode on · ← for agents". Bypass / auto / acceptEdits show a mode indicator ending
+# "(shift+tab to cycle)" (cc-2.1.332).
+_READY_MARKERS = ("for shortcuts", "manual mode on", "shift+tab to cycle")
 _INTERACTION_WAIT_S = 45  # cap on waiting for an interaction's trigger (dialog/event) to appear
-# The first-launch folder-trust dialog ("Quick safety check: ... one you trust? ... 1. Yes, I trust
-# this folder"). Default-highlighted option is "Yes", so Enter accepts.
-_TRUST_MARKERS = ("trust this folder", "quick safety check")
+_FOCUS_GLYPH = "❯"
+
+# Launch-time dialogs: (markers that identify it, the option label that accepts it). cc-2.1.332 lists
+# "No, exit" FIRST and default-highlighted in both, so Enter alone exits the session. The
+# accept option is navigated to explicitly; Enter is never pressed on any other option. Matching is
+# on the lowercased pane.
+_STARTUP_DIALOGS: tuple[tuple[tuple[str, ...], str], ...] = (
+    (("trust this folder", "quick safety check"), "yes, i trust this folder"),
+    # Normally suppressed by skipDangerousModePermissionPrompt in the generated --settings.
+    (("bypass permissions mode",), "yes, i accept"),
+)
+_DIALOG_MAX_MOVES = 4  # options per dialog are 2; slack for a dropped keypress
+
+
+def _focused_line(pane_lower: str) -> str | None:
+    for line in pane_lower.splitlines():
+        if line.lstrip().startswith(_FOCUS_GLYPH):
+            return line
+    return None
+
+
+def _accept_dialog(tmux: Tmux, session: str, accept: str, sleep, clock, *, poll: float) -> bool:
+    """Move focus onto the ``accept`` option, then press Enter. Never presses Enter elsewhere.
+
+    Returns False (no Enter sent) if focus never reaches ``accept``; the caller's readiness wait then
+    times out on a still-open dialog instead of the session exiting.
+    """
+    for _ in range(_DIALOG_MAX_MOVES + 1):
+        focused = _focused_line(tmux.capture_pane(session).lower()) or ""
+        if accept in focused:
+            tmux.send_key(session, "Enter")
+            return True
+        tmux.send_key(session, "Down")
+        _wait_for(
+            lambda: accept in (_focused_line(tmux.capture_pane(session).lower()) or ""),
+            1.5,
+            sleep,
+            clock,
+            poll=min(poll, 0.2),
+            required=False,
+        )
+    return False
 
 
 def _wait_ready(tmux: Tmux, session: str, timeout_s: float, sleep, clock, *, poll: float) -> bool:
-    """Wait until the TUI input box is ready, accepting a one-time folder-trust prompt if it appears."""
+    """Wait until the TUI input box is ready, accepting each launch-time dialog once if it appears."""
     _wait_for(lambda: tmux.has_session(session), 10.0, sleep, clock, poll=poll, required=False)
     deadline = clock() + timeout_s
-    trusted = False
+    handled: set[str] = set()
     while True:
         pane = tmux.capture_pane(session).lower()
-        if not trusted and any(marker in pane for marker in _TRUST_MARKERS):
-            tmux.send_key(session, "Enter")  # accept trust (default highlighted option)
-            trusted = True
-        elif _READY_MARKER in pane:
+        dialog = next(
+            ((m, a) for m, a in _STARTUP_DIALOGS if a not in handled and any(x in pane for x in m)),
+            None,
+        )
+        if dialog is not None:
+            _accept_dialog(tmux, session, dialog[1], sleep, clock, poll=poll)
+            handled.add(dialog[1])
+        elif any(marker in pane for marker in _READY_MARKERS):
             return True
         if clock() >= deadline:
             return False
@@ -240,10 +288,11 @@ def _setup_claude_command(
     settings_path: Path,
     model: str | None,
     effort: str | None,
+    permission_mode: str | None,
 ) -> list[str]:
     argv = [claude_bin, "--settings", str(settings_path), "--setting-sources", "project"]
-    if scenario.launch.permission_mode:
-        argv += ["--permission-mode", scenario.launch.permission_mode]
+    if permission_mode:
+        argv += ["--permission-mode", permission_mode]
     argv += list(scenario.launch.flags)
     if model:
         argv += ["--model", model]
@@ -253,7 +302,7 @@ def _setup_claude_command(
 
 
 def _build_session_env(scenario: Scenario, *, spool_dir: Path, cc_version: str, run_id: str) -> dict:
-    # P2: merge scenario env first; FLYRIG_* vars take precedence so a scenario cannot break the probe.
+    # Merge scenario env first; FLYRIG_* vars take precedence so a scenario cannot break the probe.
     return {
         **dict(scenario.setup.env),
         "FLYRIG_SPOOL_DIR": str(spool_dir),
@@ -275,7 +324,7 @@ def _run_interactions(
     poll: float,
 ) -> None:
     for step in scenario.drive.interactions:
-        # P1: capture a baseline count before waiting so a repeated wait_for only unblocks
+        # Capture a baseline count before waiting so a repeated wait_for only unblocks
         # on a *new* occurrence, not one already seen in a prior step.
         baseline = _spool_event_count(spool_dir, run_id, step.wait_for)
         # A dialog/event we're waiting to react to should appear within seconds; cap the
@@ -292,7 +341,7 @@ def _run_interactions(
             poll=poll,
             required=False,
         )
-        # P3: apply mid-session file write in-place (inotify MODIFY) before send_keys.
+        # Apply mid-session file write in-place (inotify MODIFY) before send_keys.
         if step.write_sandbox_file:
             target = sandbox / step.write_sandbox_file
             target.parent.mkdir(parents=True, exist_ok=True)
@@ -439,6 +488,7 @@ def run_scenario(
     default_model: str | None = None,
     default_effort: str | None = None,
     native_settings_path: Path | None = None,
+    default_permission_mode: str | None = None,
 ) -> ScenarioResult:
     """Drive one scenario through an interactive ``claude`` session and return the events it observed.
 
@@ -465,11 +515,19 @@ def run_scenario(
     for name, value in scenario.environment_plugins.selected:
         environment_plugins[name].configure(value, ctx, plan)
 
-    # P6: model resolves here (scenario.launch.model overrides the battery default); effort is
-    # battery-wide. Environment plugins have already set plan.settings_path / extra_argv / argv_prefix.
+    # Model resolves here (scenario.launch.model overrides the battery default); effort is
+    # battery-wide. Permission mode resolves the same way as model (scenario.launch.permission_mode
+    # overrides the battery default_permission_mode). Environment plugins have already set
+    # plan.settings_path / extra_argv / argv_prefix.
     model = scenario.launch.model or default_model
+    permission_mode = scenario.launch.permission_mode or default_permission_mode
     base_argv = _setup_claude_command(
-        scenario, claude_bin=claude_bin, settings_path=plan.settings_path, model=model, effort=default_effort
+        scenario,
+        claude_bin=claude_bin,
+        settings_path=plan.settings_path,
+        model=model,
+        effort=default_effort,
+        permission_mode=permission_mode,
     )
     argv = plan.argv_prefix + base_argv + plan.extra_argv
     env = {**_build_session_env(scenario, spool_dir=spool_dir, cc_version=cc_version, run_id=run_id), **plan.env}
@@ -567,6 +625,7 @@ def run_scenarios(
             default_model=manifest.meta.default_model,
             default_effort=manifest.meta.default_effort,
             native_settings_path=native_settings_path,
+            default_permission_mode=manifest.meta.default_permission_mode,
         )
         results.append(result)
         statusline_counts = {ev: _spool_event_count(paths.spool, result.run_id, ev) for ev in STATUSLINE_FAMILY.events}

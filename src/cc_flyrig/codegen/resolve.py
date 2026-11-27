@@ -30,18 +30,33 @@ def is_version_gated(node: dict) -> bool:
     return "x-version-gated" in node or "x-version-gated-defer" in node
 
 
+def is_nullable(node: dict) -> bool:
+    """True if a property's schema admits JSON ``null`` (``"type": [..., "null"]`` or a null ``oneOf`` branch).
+
+    ``TypeNodeBuilder`` drops the null member when building the ``TypeNode``: an *optional* field
+    already renders as absent-or-null, so the flag only changes the rendering of a *required*
+    nullable field (e.g. ``PreModelSwitchInput.requested_model``), which must still admit ``null``.
+    """
+    type_ = node.get("type")
+    if isinstance(type_, list) and "null" in type_:
+        return True
+    return any(isinstance(b, dict) and b.get("type") == "null" for b in node.get("oneOf", []))
+
+
 @dataclass(frozen=True, slots=True)
 class FieldSpec:
-    """One field: the wire name, its language-neutral ``TypeNode``, and required-ness.
+    """One field: the wire name, its language-neutral ``TypeNode``, required-ness, and nullability.
 
     The language identifier is derived from ``json_name`` by each runtime's macros (Python:
     ``snake_case`` + reserved-word suffix), so no language-specific name is stored here.
+    ``nullable`` (see ``is_nullable``) widens a required field's type to admit ``null``.
     """
 
     json_name: str
     type_node: TypeNode
     required: bool
     doc: str | None = None
+    nullable: bool = False
 
 
 @dataclass(frozen=True, slots=True)
@@ -174,7 +189,9 @@ class Resolver:
                 type_node = built.node
                 deps |= built.deps
             is_required = json_name in required and not is_version_gated(node)
-            fields.append(FieldSpec(json_name, type_node, is_required, node.get("description")))
+            fields.append(
+                FieldSpec(json_name, type_node, is_required, node.get("description"), nullable=is_nullable(node))
+            )
         fields.sort(key=lambda f: 0 if f.required else 1)
         return fields, deps, nested
 

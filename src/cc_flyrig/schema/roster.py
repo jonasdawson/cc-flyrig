@@ -49,12 +49,20 @@ EVENTS: tuple[str, ...] = (
     "Elicitation",
     "ElicitationResult",
     "DirectoryAdded",
+    "PreModelSwitch",
+    "PostModelSwitch",
+    "PreSkillShellCommand",
 )
 
 # Earliest CC version each event's $defs entry is expected in. An event absent from this map is
 # assumed present since the 2.1.168 baseline (the original 30). Keep in ascending version order.
 EVENT_SINCE: dict[str, str] = {
     "DirectoryAdded": "2.1.220",
+    # Docs: "requires Claude Code v2.1.251 or later" (no committed schema between 2.1.233 and 2.1.332).
+    "PreModelSwitch": "2.1.251",
+    "PostModelSwitch": "2.1.251",
+    # Docs: "requires Claude Code v2.1.332 or later".
+    "PreSkillShellCommand": "2.1.332",
 }
 
 

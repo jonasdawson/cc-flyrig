@@ -108,7 +108,7 @@ export interface WorktreeInfo {
   originalBranch?: string;
 }
 
-/** The whole statusLine contract — statusLine has no output schema (D3); inputs are authored entirely from capture. */
+/** The whole statusLine contract — statusLine has no output schema; inputs are authored entirely from capture. */
 export interface StatusLineData {
   cwd: string;
   sessionId: string;
